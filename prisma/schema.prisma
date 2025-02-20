@@ -1,0 +1,86 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Chat {
+  id         String     @id @default(uuid()) @db.Char(36)
+  createdAt  DateTime
+  title      String
+  userId     String     @db.Char(36)
+  visibility Visibility @default(PRIVATE)
+
+  messages Message[]
+  votes    Vote[]
+}
+
+model Message {
+  id        String   @id @default(uuid()) @db.Char(36)
+  chatId    String   @db.Char(36)
+  role      String
+  content   Json
+  createdAt DateTime
+
+  chat  Chat   @relation(fields: [chatId], references: [id])
+  votes Vote[]
+}
+
+model Vote {
+  chatId    String  @db.Char(36)
+  messageId String  @db.Char(36)
+  isUpvoted Boolean
+
+  chat    Chat    @relation(fields: [chatId], references: [id])
+  message Message @relation(fields: [messageId], references: [id])
+
+  @@id([chatId, messageId])
+}
+
+model Document {
+  id        String       @default(uuid()) @db.Char(36)
+  createdAt DateTime
+  title     String
+  content   String? // optional text content
+  kind      DocumentKind @default(TEXT)
+  userId    String       @db.Char(36)
+
+  suggestions Suggestion[]
+
+  @@id([id, createdAt])
+}
+
+model Suggestion {
+  id                String   @id @default(uuid()) @db.Char(36)
+  documentId        String   @db.Char(36)
+  documentCreatedAt DateTime
+  originalText      String
+  suggestedText     String
+  description       String? // optional description
+  isResolved        Boolean  @default(false)
+  userId            String   @db.Char(36)
+  createdAt         DateTime
+
+  document Document @relation(fields: [documentId, documentCreatedAt], references: [id, createdAt])
+}
+
+enum Visibility {
+  PUBLIC  @map("public")
+  PRIVATE @map("private")
+}
+
+enum DocumentKind {
+  TEXT  @map("text")
+  CODE  @map("code")
+  IMAGE @map("image")
+  SHEET @map("sheet")
+}

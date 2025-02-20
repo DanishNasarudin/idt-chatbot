@@ -32,11 +32,12 @@ export default function Sidebar({
       }}
       initial={String(isOpen)}
       className={cn(
-        "flex flex-col max-w-[200px] w-full border-r-[1px] border-border bg-background flex-grow-0 flex-shrink-0 overflow-hidden"
+        navbarIsOpen ? "border-border" : "border-transparent",
+        "flex flex-col max-w-[200px] w-full border-r-[1px] bg-background flex-grow-0 flex-shrink-0 overflow-hidden"
       )}
     >
       <SidebarTop />
-      <div className="flex flex-col gap-2 h-full overflow-y-auto px-2 overflow-x-hidden">
+      <div className="flex flex-col gap-2 h-full overflow-y-auto px-4 overflow-x-hidden">
         <span className="font-bold text-muted-foreground">Chats</span>
         {chatsMemo.length > 0 &&
           chatsMemo.map((chat) => (

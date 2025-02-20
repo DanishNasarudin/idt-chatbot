@@ -8,7 +8,7 @@ export default function Navbar() {
   return (
     <nav className="flex gap-2 w-full justify-between p-2">
       <NavbarOpenButton />
-      <div className="flex gap-2 w-full justify-end">
+      <div className="flex gap-2 w-full justify-end pr-2">
         <ModeToggle />
         <SignedOut>
           <Button variant={"outline"} size={"icon"}>
