@@ -1,9 +1,12 @@
 "use client";
-import { cn } from "@/lib/utils";
+import { cn, fetcher } from "@/lib/utils";
+import { Chat } from "@prisma/client";
 import { EllipsisIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
+import useSWR from "swr";
 import { Button, buttonVariants } from "../ui/button";
 import {
   DropdownMenu,
@@ -23,10 +26,32 @@ export default function SidebarNavButton({
   if (!chatId) return null;
   const router = useRouter();
   const pathname = usePathname();
+  const {
+    data: history,
+    isLoading,
+    mutate,
+  } = useSWR<Array<Chat>>(chatId ? "/api/history" : null, fetcher, {
+    fallbackData: [],
+  });
 
   const handleDelete = useCallback(() => {
-    //   toast.loading("Deleting chat...", { id: "delete-chat" });
-    //   mutateDeleteChat({ chatId: chat.id });
+    const deletePromise = fetch(`/api/chat?id=${chatId}`, {
+      method: "DELETE",
+    });
+
+    toast.promise(deletePromise, {
+      loading: "Deleting chat...",
+      success: () => {
+        mutate((history) => {
+          if (history) {
+            return history.filter((h) => h.id !== chatId);
+          }
+        });
+        router.push("/");
+        return "Chat deleted successfully";
+      },
+      error: "Failed to delete chat",
+    });
   }, []);
 
   const [renameActive, setRenameActive] = useState(false);

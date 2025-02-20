@@ -1,5 +1,8 @@
+"use server";
+import { myProvider } from "@/lib/models";
 import prisma from "@/lib/prisma";
 import { Message, Prisma, Vote } from "@prisma/client";
+import { Message as AIMessage, generateText } from "ai";
 
 export async function saveMessages({
   messages,
@@ -136,4 +139,22 @@ export async function deleteMessagesByChatIdAfterTimestamp({
     );
     throw error;
   }
+}
+
+export async function generateTitleFromUserMessage({
+  message,
+}: {
+  message: AIMessage;
+}) {
+  const { text: title } = await generateText({
+    model: myProvider.languageModel("chat-model"),
+    system: `\n
+      - you will generate a short title based on the first message a user begins a conversation with
+      - ensure it is not more than 80 characters long
+      - the title should be a summary of the user's message
+      - do not use quotes or colons`,
+    prompt: JSON.stringify(message),
+  });
+
+  return title;
 }

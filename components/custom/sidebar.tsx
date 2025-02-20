@@ -1,27 +1,45 @@
 "use client";
-import { cn } from "@/lib/utils";
+import { cn, fetcher } from "@/lib/utils";
 import { useGeneralStore } from "@/lib/zustand";
+import { Chat } from "@prisma/client";
 import { motion } from "motion/react";
-import { useEffect, useMemo, useState } from "react";
+import { usePathname } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import useSWR from "swr";
 import SidebarNavButton from "./sidebar-navbutton";
 import SidebarTop from "./sidebar-top";
 
-export default function Sidebar({
-  chats,
-}: {
-  chats?: { name: string; chatId: string }[];
-}) {
-  const chatsMemo = useMemo(() => chats || [], [chats]);
+export default function Sidebar({ userId }: { userId?: string }) {
+  const pathname = usePathname();
+  const {
+    data: history,
+    isLoading,
+    mutate,
+  } = useSWR<Array<Chat>>(userId ? "/api/history" : null, fetcher, {
+    fallbackData: [],
+  });
+
+  useEffect(() => {
+    mutate();
+  }, [pathname, mutate]);
 
   const { navbarIsOpen } = useGeneralStore();
 
   const [isOpen, setIsOpen] = useState<boolean | null>(null);
 
   useEffect(() => {
-    setIsOpen(localStorage.getItem("navbar-isopen") === "true");
+    if (isOpen === null)
+      setIsOpen(localStorage.getItem("navbar-isopen") === "true");
   }, []);
 
-  if (navbarIsOpen === undefined) return null;
+  const sectionRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    sectionRef.current?.scrollTo({
+      top: -sectionRef.current.scrollHeight,
+      behavior: "smooth",
+    });
+  }, []);
 
   return (
     <motion.nav
@@ -37,21 +55,31 @@ export default function Sidebar({
       )}
     >
       <SidebarTop />
-      <div className="flex flex-col gap-2 h-full overflow-y-auto px-4 overflow-x-hidden">
+      <div
+        ref={sectionRef}
+        className="flex flex-col gap-2 h-full overflow-y-auto px-4 overflow-x-hidden"
+      >
         <span className="font-bold text-muted-foreground">Chats</span>
-        {chatsMemo.length > 0 &&
-          chatsMemo.map((chat) => (
+        {history &&
+          history.length > 0 &&
+          (history as Chat[]).map((chat) => (
             <SidebarNavButton
-              key={chat.chatId}
-              name={chat.name}
-              chatId={chat.chatId}
+              key={chat.id}
+              name={chat.title}
+              chatId={chat.id}
             />
           ))}
-        {chatsMemo.length === 0 && (
+        {!isLoading && history && history.length === 0 && (
           <nav className="flex flex-col w-full h-full justify-center items-center">
             <p className="text-muted-foreground">No chat history</p>
           </nav>
         )}
+        {isLoading && (
+          <nav className="flex flex-col w-full h-full justify-center items-center">
+            <p className="text-muted-foreground">Loading chat...</p>
+          </nav>
+        )}
+        {/* <div ref={endRef} className="shrink-0 min-w-[24px] min-h-[24px]" /> */}
       </div>
     </motion.nav>
   );

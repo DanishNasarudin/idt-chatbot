@@ -31,6 +31,7 @@ function PureMessages({
 }: MessagesProps) {
   const [messagesContainerRef, messagesEndRef] =
     useScrollToBottom<HTMLDivElement>();
+
   const sectionRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -42,10 +43,9 @@ function PureMessages({
 
   return (
     <section
-      ref={messagesContainerRef}
+      ref={sectionRef}
       className={cn(
-        "w-full h-full mx-auto flex flex-col gap-2 overflow-y-auto relative",
-        "before:w-full before:h-[80px] before:fixed before:z-[0] before:top-0 before:bg-gradient-to-b before:from-background before:to-transparent before:from-80%"
+        "w-full h-full mx-auto flex flex-col gap-2 overflow-y-auto relative"
       )}
     >
       <div className="h-[8px] bg-background flex-none"></div>
@@ -75,7 +75,7 @@ function PureMessages({
         messages.length > 0 &&
         messages[messages.length - 1].role === "user" && <ThinkingMessage />}
 
-      <div ref={messagesEndRef} className="shrink-0 min-w-[24px] min-h-32" />
+      <div className="shrink-0 min-w-[24px] min-h-64" />
       {/* <div className="h-32 bg-background flex-none"></div> */}
     </section>
   );

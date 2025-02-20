@@ -6,7 +6,7 @@ import NavbarOpenButton from "./navbar-openbutton";
 
 export default function Navbar() {
   return (
-    <nav className="flex gap-2 w-full justify-between p-2">
+    <nav className="flex gap-2 w-full justify-between p-2 z-[1]">
       <NavbarOpenButton />
       <div className="flex gap-2 w-full justify-end pr-2">
         <ModeToggle />

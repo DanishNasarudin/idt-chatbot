@@ -3,8 +3,8 @@ import { Message as AIMessageType, ChatRequestOptions } from "ai";
 import { BotMessageSquareIcon } from "lucide-react";
 import { motion } from "motion/react";
 import { memo } from "react";
-import ReactMarkdown from "react-markdown";
 import { Avatar, AvatarFallback } from "../ui/avatar";
+import { Markdown } from "./markdown";
 
 type MessageProps = {
   chatId: string;
@@ -24,7 +24,7 @@ function PureMessage({ chatId, message }: MessageProps) {
   return (
     <div
       className={cn(
-        "flex gap-4 w-full max-w-[640px] mx-auto",
+        "flex gap-4 w-full max-w-[700px] mx-auto",
         message.role === "assistant" ? "justify-start" : "justify-end"
       )}
     >
@@ -41,10 +41,10 @@ function PureMessage({ chatId, message }: MessageProps) {
         className={cn(
           "text-xs p-2 flex flex-col gap-2 justify-center w-full",
           message.role === "user" &&
-            "bg-secondary rounded-lg max-w-[60%] px-6 py-4"
+            "bg-secondary rounded-xl max-w-[60%] px-6 py-4"
         )}
       >
-        <ReactMarkdown>{message.content}</ReactMarkdown>
+        <Markdown>{message.content as string}</Markdown>
       </span>
       <div className="w-[40px] flex-none"></div>
     </div>
@@ -70,7 +70,7 @@ export const ThinkingMessage = () => {
     >
       <div
         className={cn(
-          "flex gap-4 w-full max-w-[640px] mx-auto",
+          "flex gap-4 w-full max-w-[700px] mx-auto",
           role === "assistant" ? "justify-start" : "justify-end"
         )}
       >

@@ -1,4 +1,4 @@
-"server-only";
+"use server";
 
 import prisma from "@/lib/prisma";
 import { Chat } from "@prisma/client";
@@ -13,7 +13,7 @@ export async function saveChat({
   title: string;
 }): Promise<Chat> {
   try {
-    return await prisma.chat.create({
+    const data = await prisma.chat.create({
       data: {
         id,
         createdAt: new Date(),
@@ -21,6 +21,8 @@ export async function saveChat({
         title,
       },
     });
+
+    return data;
   } catch (error) {
     console.error("Failed to save chat in database");
     throw error;

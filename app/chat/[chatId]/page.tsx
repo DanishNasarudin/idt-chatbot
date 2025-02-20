@@ -1,13 +1,44 @@
-import type { CoreMessage } from "ai";
+import { Chat } from "@/components/custom/chat";
+import { convertToUIMessages } from "@/lib/utils";
+import { getChatById } from "@/services/chat";
+import { getMessagesByChatId } from "@/services/message";
+import { auth } from "@clerk/nextjs/server";
+import { notFound } from "next/navigation";
 
-export default function ChatPage({ params }: { params: { chatId: string } }) {
+export default async function ChatPage({
+  params,
+}: {
+  params: { chatId: string };
+}) {
   const { chatId } = params;
 
-  const messages: CoreMessage[] = [
-    { role: "system", content: "You are a chatbot." },
-    { role: "user", content: "Hi there." },
-    { role: "assistant", content: "Hello!!" },
-  ];
+  const chat = await getChatById({ id: chatId });
 
-  return <div className="w-full h-full">{chatId}</div>;
+  if (!chat) {
+    notFound();
+  }
+
+  const session = await auth();
+
+  if (chat.visibility === "PRIVATE") {
+    if (!session) {
+      return notFound();
+    }
+
+    if (session.userId !== chat.userId) {
+      return notFound();
+    }
+  }
+
+  const messagesFromDb = await getMessagesByChatId({
+    id: chatId,
+  });
+
+  return (
+    <Chat
+      id={chat.id}
+      initialMessages={convertToUIMessages(messagesFromDb)}
+      isReadonly={session.userId !== chat.userId}
+    />
+  );
 }
