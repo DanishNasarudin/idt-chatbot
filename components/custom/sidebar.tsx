@@ -1,3 +1,7 @@
+"use client";
+import { cn } from "@/lib/utils";
+import { useGeneralStore } from "@/lib/zustand";
+import { motion } from "motion/react";
 import { useMemo } from "react";
 import SidebarNavButton from "./sidebar-navbutton";
 import SidebarTop from "./sidebar-top";
@@ -9,10 +13,21 @@ export default function Sidebar({
 }) {
   const chatsMemo = useMemo(() => chats || [], [chats]);
 
+  const { navbarIsOpen } = useGeneralStore();
+
   return (
-    <nav className="flex flex-col max-w-[200px] w-full border-r-[1px] border-border bg-background flex-grow-0 flex-shrink-0">
+    <motion.nav
+      animate={String(navbarIsOpen)}
+      variants={{
+        true: { width: 200 },
+        false: { width: 0 },
+      }}
+      className={cn(
+        "flex flex-col max-w-[200px] w-full border-r-[1px] border-border bg-background flex-grow-0 flex-shrink-0 overflow-hidden"
+      )}
+    >
       <SidebarTop />
-      <div className="flex flex-col gap-2 h-full overflow-y-auto px-2">
+      <div className="flex flex-col gap-2 h-full overflow-y-auto px-2 overflow-x-hidden">
         <span className="font-bold text-muted-foreground">Chats</span>
         {chatsMemo.length > 0 &&
           chatsMemo.map((chat) => (
@@ -28,6 +43,6 @@ export default function Sidebar({
           </nav>
         )}
       </div>
-    </nav>
+    </motion.nav>
   );
 }
