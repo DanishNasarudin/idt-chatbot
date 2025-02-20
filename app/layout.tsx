@@ -30,6 +30,15 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const chats = [
+    { name: "test", chatId: "test2" },
+    { name: "test", chatId: "test3" },
+    { name: "test", chatId: "test4" },
+    { name: "test", chatId: "test5" },
+    { name: "test", chatId: "test6" },
+    { name: "test", chatId: "test7" },
+  ];
+
   return (
     <html lang="en">
       <body
@@ -37,10 +46,10 @@ export default function RootLayout({
       >
         <Providers>
           <div className="flex w-full h-full overflow-hidden">
-            <Sidebar />
+            <Sidebar chats={chats} />
             <div className="flex flex-col w-full h-full">
               <Navbar />
-              {children}
+              <div className="p-4 w-full h-full">{children}</div>
             </div>
           </div>
         </Providers>
