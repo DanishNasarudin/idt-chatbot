@@ -13,13 +13,18 @@ export default function PanelButton({ tooltip }: { tooltip?: string }) {
   useEffect(() => {
     if (navbarIsOpen !== undefined) return;
     const storage = localStorage.getItem("navbar-isopen");
-    if (storage) {
-      setNavbarIsOpenLocaleStore(Boolean(storage));
+    if (storage !== null) {
+      //   console.log("PASS CHECK", navbarIsOpen, storage);
+      setNavbarIsOpenLocaleStore(storage === "true");
     }
   }, []);
 
+  //   console.log(navbarIsOpen, "CHECK");
+
   useEffect(() => {
+    if (navbarIsOpen === undefined) return;
     const storage = localStorage.getItem("navbar-isopen");
+    // console.log("PASS CHECK", navbarIsOpen, storage);
     if (!storage || storage !== String(navbarIsOpen)) {
       localStorage.setItem("navbar-isopen", String(navbarIsOpen));
     }

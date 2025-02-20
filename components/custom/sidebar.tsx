@@ -2,7 +2,7 @@
 import { cn } from "@/lib/utils";
 import { useGeneralStore } from "@/lib/zustand";
 import { motion } from "motion/react";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import SidebarNavButton from "./sidebar-navbutton";
 import SidebarTop from "./sidebar-top";
 
@@ -15,6 +15,14 @@ export default function Sidebar({
 
   const { navbarIsOpen } = useGeneralStore();
 
+  const [isOpen, setIsOpen] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    setIsOpen(localStorage.getItem("navbar-isopen") === "true");
+  }, []);
+
+  if (navbarIsOpen === undefined) return null;
+
   return (
     <motion.nav
       animate={String(navbarIsOpen)}
@@ -22,6 +30,7 @@ export default function Sidebar({
         true: { width: 200 },
         false: { width: 0 },
       }}
+      initial={String(isOpen)}
       className={cn(
         "flex flex-col max-w-[200px] w-full border-r-[1px] border-border bg-background flex-grow-0 flex-shrink-0 overflow-hidden"
       )}

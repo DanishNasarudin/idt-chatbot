@@ -15,6 +15,7 @@ export default function NavbarOpenButton() {
         false: { opacity: 1 },
         true: { opacity: 0, pointerEvents: "none" },
       }}
+      initial={{ opacity: 0 }}
       className="flex"
     >
       <PanelButton tooltip="Open sidebar" />
