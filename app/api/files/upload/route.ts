@@ -28,8 +28,6 @@ export async function POST(request: Request) {
     return new Response("Request body is empty", { status: 400 });
   }
 
-  console.log("PASS 1");
-
   try {
     const formData = await request.formData();
     const file = formData.get("file") as Blob;
@@ -47,8 +45,6 @@ export async function POST(request: Request) {
 
       return NextResponse.json({ error: errorMessage }, { status: 400 });
     }
-
-    console.log("PASS 2");
 
     // Retrieve the filename from the File object in formData
     const fileInput = formData.get("file") as File;

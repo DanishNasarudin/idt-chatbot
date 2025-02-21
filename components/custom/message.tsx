@@ -1,10 +1,12 @@
 import { cn } from "@/lib/utils";
+import { useUser } from "@clerk/nextjs";
 import { Message as AIMessageType, ChatRequestOptions } from "ai";
 import { BotMessageSquareIcon } from "lucide-react";
 import { motion } from "motion/react";
 import { memo } from "react";
 import { Avatar, AvatarFallback } from "../ui/avatar";
 import { Markdown } from "./markdown";
+import { MessageReasoning } from "./message-reasoning";
 
 type MessageProps = {
   chatId: string;
@@ -19,8 +21,23 @@ type MessageProps = {
   isReadonly: boolean;
 };
 
-function PureMessage({ chatId, message }: MessageProps) {
-  message.role;
+function PureMessage({ isLoading, message }: MessageProps) {
+  const { user } = useUser();
+  const userIntial =
+    `${user?.firstName?.toUpperCase().split("")[0]}` +
+    `${user?.lastName?.toUpperCase().split("")[0]}`;
+
+  const hasReasoning =
+    message.parts?.some((part) => part.type === "reasoning") || false;
+
+  const reasoning = hasReasoning
+    ? message.parts
+        ?.map((part) => {
+          if (part.type === "reasoning") return part.reasoning;
+        })
+        .join(" ")!
+    : "";
+
   return (
     <div
       className={cn(
@@ -39,14 +56,24 @@ function PureMessage({ chatId, message }: MessageProps) {
       </div>
       <span
         className={cn(
-          "text-xs p-2 flex flex-col gap-2 justify-center w-full",
+          "text-xs p-2 flex flex-col gap-2 justify-center w-full text-wrap",
           message.role === "user" &&
             "bg-secondary rounded-xl max-w-[60%] px-6 py-4"
         )}
       >
+        {hasReasoning && reasoning.trim() !== "" && (
+          <MessageReasoning isLoading={isLoading} reasoning={reasoning} />
+        )}
         <Markdown>{message.content as string}</Markdown>
       </span>
-      <div className="w-[40px] flex-none"></div>
+      <div className="w-[40px] flex-none">
+        {/* {message.role === "user" && (
+          <Avatar className="w-[36px] h-[36px]">
+            <AvatarImage src={user?.imageUrl} alt="user_profile" />
+            <AvatarFallback className="text-xs">{userIntial}</AvatarFallback>
+          </Avatar>
+        )} */}
+      </div>
     </div>
   );
 }

@@ -51,16 +51,26 @@ function PureMessages({
       <div className="h-[8px] bg-background flex-none"></div>
       {messages && messages.length > 0 ? (
         messages.map((message, index) => {
+          const messageContent = message.content.trim();
+          const hasIncompleteReasoning = message.parts?.some(
+            (part) => part.type === "reasoning" && messageContent === ""
+          );
+
           return (
-            <Message
-              key={message.id}
-              chatId={chatId}
-              message={message}
-              isLoading={isLoading && messages.length - 1 === index}
-              setMessages={setMessages}
-              reload={reload}
-              isReadonly={isReadonly}
-            />
+            <div key={message.id}>
+              <Message
+                chatId={chatId}
+                message={
+                  hasIncompleteReasoning
+                    ? { ...message, content: "Thinking..." }
+                    : message
+                }
+                isLoading={isLoading && messages.length - 1 === index}
+                setMessages={setMessages}
+                reload={reload}
+                isReadonly={isReadonly}
+              />
+            </div>
           );
         })
       ) : (

@@ -111,12 +111,12 @@ export default function SidebarNavButton({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent side="right">
-          <DropdownMenuItem
+          {/* <DropdownMenuItem
             onClick={() => setRenameActive(true)}
             // disabled={isPendingRenameChat}
           >
             Rename
-          </DropdownMenuItem>
+          </DropdownMenuItem> */}
           <DropdownMenuItem
             className={cn("!text-destructive")}
             onClick={handleDelete}

@@ -5,16 +5,18 @@ import {
   streamText,
 } from "ai";
 
-import { myProvider } from "@/lib/models";
+import { myProvider, regularPrompt } from "@/lib/models";
 import {
   generateUUID,
   getMostRecentUserMessage,
   sanitizeResponseMessages,
 } from "@/lib/utils";
 
+import prisma from "@/lib/prisma";
 import { deleteChatById, getChatById, saveChat } from "@/services/chat";
 import { generateTitleFromUserMessage, saveMessages } from "@/services/message";
 import { auth } from "@clerk/nextjs/server";
+import { Sales } from "@prisma/client";
 
 export const maxDuration = 60;
 
@@ -55,17 +57,27 @@ export async function POST(request: Request) {
         role: userMessage.role,
         content: userMessage.content,
         createdAt: new Date(),
+        updatedAt: new Date(),
         chatId: id,
       },
     ],
   });
 
+  const salesData = await prisma.sales.findMany();
+  const formattedSales = formatSalesData(salesData.slice(50));
+
+  const updatedPrompt = `
+    ${regularPrompt}
+
+    Here is the sales data for context:
+    ${formattedSales || "No sales data available"}
+    `;
+
   return createDataStreamResponse({
     execute: (dataStream) => {
       const result = streamText({
         model: myProvider.languageModel(selectedChatModel),
-        system:
-          "You are a friendly assistant! Keep your responses concise and helpful.",
+        system: updatedPrompt,
         messages,
         maxSteps: 5,
         experimental_transform: smoothStream({ chunking: "word" }),
@@ -86,6 +98,7 @@ export async function POST(request: Request) {
                     role: message.role,
                     content: message.content as any,
                     createdAt: new Date(),
+                    updatedAt: new Date(),
                   };
                 }),
               });
@@ -139,4 +152,13 @@ export async function DELETE(request: Request) {
       status: 500,
     });
   }
+}
+
+function formatSalesData(sales: Sales[]) {
+  return sales
+    .map(
+      (sale) =>
+        `Invoice: ${sale.invoice}, Customer: ${sale.customer}, PurchaseDate: ${sale.purchaseDate}, ItemDescription: ${sale.item}, Quantity: ${sale.quantity}, PricePerUnit: ${sale.price}, Total: ${sale.total}, Payment: ${sale.paymentMethod}, CustomerAddress: ${sale.address}, Notes: ${sale.comment}, ${sale.remarks}`
+    )
+    .join("\n");
 }

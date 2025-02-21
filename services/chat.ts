@@ -48,7 +48,7 @@ export async function getChatsByUserId({
   try {
     return await prisma.chat.findMany({
       where: { userId: id },
-      orderBy: { createdAt: "desc" },
+      orderBy: { updatedAt: "desc" },
     });
   } catch (error) {
     console.error("Failed to get chats by user from database");

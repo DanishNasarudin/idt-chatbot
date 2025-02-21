@@ -15,7 +15,8 @@ datasource db {
 
 model Chat {
   id         String     @id @default(uuid()) @db.Char(36)
-  createdAt  DateTime
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
   title      String
   userId     String     @db.Char(36)
   visibility Visibility @default(PRIVATE)
@@ -29,9 +30,10 @@ model Message {
   chatId    String   @db.Char(36)
   role      String
   content   Json
-  createdAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  chat  Chat   @relation(fields: [chatId], references: [id])
+  chat  Chat   @relation(fields: [chatId], references: [id], onDelete: Cascade)
   votes Vote[]
 }
 
@@ -40,8 +42,8 @@ model Vote {
   messageId String  @db.Char(36)
   isUpvoted Boolean
 
-  chat    Chat    @relation(fields: [chatId], references: [id])
-  message Message @relation(fields: [messageId], references: [id])
+  chat    Chat    @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
 
   @@id([chatId, messageId])
 }
@@ -70,7 +72,7 @@ model Suggestion {
   userId            String   @db.Char(36)
   createdAt         DateTime
 
-  document Document @relation(fields: [documentId, documentCreatedAt], references: [id, createdAt])
+  document Document @relation(fields: [documentId, documentCreatedAt], references: [id, createdAt], onDelete: Cascade)
 }
 
 enum Visibility {
@@ -83,4 +85,22 @@ enum DocumentKind {
   CODE  @map("code")
   IMAGE @map("image")
   SHEET @map("sheet")
+}
+
+model Sales {
+  id            String   @id @default(uuid()) @db.Char(36)
+  customer      String
+  invoice       String
+  purchaseDate  DateTime
+  address       String
+  item          String
+  quantity      Int
+  price         Int
+  total         Int
+  comment       String
+  remarks       String
+  paymentMethod String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

@@ -3,7 +3,7 @@ import { convertToUIMessages } from "@/lib/utils";
 import { getChatById } from "@/services/chat";
 import { getMessagesByChatId } from "@/services/message";
 import { auth } from "@clerk/nextjs/server";
-import { notFound } from "next/navigation";
+import { redirect } from "next/navigation";
 
 export default async function ChatPage({
   params,
@@ -15,18 +15,18 @@ export default async function ChatPage({
   const chat = await getChatById({ id: chatId });
 
   if (!chat) {
-    notFound();
+    redirect("/");
   }
 
   const session = await auth();
 
   if (chat.visibility === "PRIVATE") {
     if (!session) {
-      return notFound();
+      return redirect("/");
     }
 
     if (session.userId !== chat.userId) {
-      return notFound();
+      return redirect("/");
     }
   }
 
