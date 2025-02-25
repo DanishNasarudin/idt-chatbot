@@ -1,9 +1,10 @@
 import { cn } from "@/lib/utils";
 import { useUser } from "@clerk/nextjs";
 import { Message as AIMessageType, ChatRequestOptions } from "ai";
+import equal from "fast-deep-equal";
 import { BotMessageSquareIcon } from "lucide-react";
 import { motion } from "motion/react";
-import { memo } from "react";
+import { memo, useMemo } from "react";
 import { Avatar, AvatarFallback } from "../ui/avatar";
 import { Markdown } from "./markdown";
 import { MessageReasoning } from "./message-reasoning";
@@ -27,16 +28,23 @@ function PureMessage({ isLoading, message }: MessageProps) {
     `${user?.firstName?.toUpperCase().split("")[0]}` +
     `${user?.lastName?.toUpperCase().split("")[0]}`;
 
-  const hasReasoning =
-    message.parts?.some((part) => part.type === "reasoning") || false;
+  const hasReasoning = useMemo(
+    () => message.parts?.some((part) => part.type === "reasoning") || false,
+    [message, isLoading]
+  );
+  const reasoning = useMemo(
+    () =>
+      hasReasoning
+        ? message.parts
+            ?.map((part) => {
+              if (part.type === "reasoning") return part.reasoning;
+            })
+            .join(" ")!
+        : "",
+    [hasReasoning, message, isLoading]
+  );
 
-  const reasoning = hasReasoning
-    ? message.parts
-        ?.map((part) => {
-          if (part.type === "reasoning") return part.reasoning;
-        })
-        .join(" ")!
-    : "";
+  //   console.log(hasReasoning, reasoning, "CHECK THIS");
 
   return (
     <div
@@ -81,6 +89,7 @@ function PureMessage({ isLoading, message }: MessageProps) {
 export const Message = memo(PureMessage, (prevProps, nextProps) => {
   if (prevProps.isLoading !== nextProps.isLoading) return false;
   if (prevProps.message.content !== nextProps.message.content) return false;
+  if (!equal(prevProps.message.parts, nextProps.message.parts)) return false;
 
   return true;
 });

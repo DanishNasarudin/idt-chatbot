@@ -10,11 +10,11 @@ const ollama = createOllama({
   baseURL: "http://localhost:11434/api",
 });
 
-export const DEFAULT_CHAT_MODEL: string = "chat-model";
+export const DEFAULT_CHAT_MODEL: string = "deepseek-r1:7b";
 
 export const myProvider = customProvider({
   languageModels: {
-    "chat-model": wrapLanguageModel({
+    "deepseek-r1:7b": wrapLanguageModel({
       model: ollama("deepseek-r1:7b"),
       middleware: extractReasoningMiddleware({ tagName: "think" }),
     }),

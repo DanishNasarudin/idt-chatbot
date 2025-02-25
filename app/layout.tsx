@@ -1,11 +1,6 @@
-import Navbar from "@/components/custom/navbar";
-import Sidebar from "@/components/custom/sidebar";
 import Providers from "@/lib/providers";
-import { getChatsByUserId } from "@/services/chat";
-import { auth } from "@clerk/nextjs/server";
 import type { Metadata } from "next";
 import localFont from "next/font/local";
-import { notFound } from "next/navigation";
 import "./globals.css";
 
 const geistSans = localFont({
@@ -33,30 +28,12 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const session = await auth();
-
-  if (!session) {
-    return notFound();
-  }
-
-  const chats = await getChatsByUserId({ id: session.userId! });
-
-  // console.log(chats, "RENDER LAa");
-
   return (
     <html lang="en">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased h-screen`}
       >
-        <Providers>
-          <div className="flex w-full h-full overflow-hidden">
-            <Sidebar userId={session.userId!} />
-            <div className="flex flex-col w-full h-full">
-              <Navbar />
-              <div className="p-4 w-full h-full">{children}</div>
-            </div>
-          </div>
-        </Providers>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

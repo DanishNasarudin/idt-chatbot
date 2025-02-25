@@ -41,6 +41,8 @@ function PureMessages({
     });
   }, [messages]);
 
+  //   console.log(isLoading, "LOADING?");
+
   return (
     <section
       ref={sectionRef}
@@ -52,20 +54,19 @@ function PureMessages({
       {messages && messages.length > 0 ? (
         messages.map((message, index) => {
           const messageContent = message.content.trim();
-          const hasIncompleteReasoning = message.parts?.some(
-            (part) => part.type === "reasoning" && messageContent === ""
-          );
+          const hasIncompleteReasoning =
+            message.parts?.some(
+              (part) => part.type === "reasoning" && messageContent === ""
+            ) || false;
+
+          //   console.log(hasIncompleteReasoning, "CHECK");
 
           return (
             <div key={message.id}>
               <Message
                 chatId={chatId}
-                message={
-                  hasIncompleteReasoning
-                    ? { ...message, content: "Thinking..." }
-                    : message
-                }
-                isLoading={isLoading && messages.length - 1 === index}
+                message={message}
+                isLoading={hasIncompleteReasoning}
                 setMessages={setMessages}
                 reload={reload}
                 isReadonly={isReadonly}

@@ -67,10 +67,10 @@ export async function POST(request: Request) {
   const formattedSales = formatSalesData(salesData.slice(50));
 
   const updatedPrompt = `
-    ${regularPrompt}
-
-    Here is the sales data for context:
     ${formattedSales || "No sales data available"}
+    Above is the sales data for context.
+
+    ${regularPrompt}
     `;
 
   return createDataStreamResponse({
@@ -117,7 +117,8 @@ export async function POST(request: Request) {
         sendReasoning: true,
       });
     },
-    onError: () => {
+    onError: (error) => {
+      console.error(error);
       return "Oops, an error occured!";
     },
   });

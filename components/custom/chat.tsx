@@ -7,6 +7,7 @@ import { useSWRConfig } from "swr";
 
 import { cn, generateUUID } from "@/lib/utils";
 
+import { DEFAULT_CHAT_MODEL } from "@/lib/models";
 import { toast } from "sonner";
 import { Messages } from "./messages";
 import { MultimodalInput } from "./multimodal-input";
@@ -34,7 +35,7 @@ export function Chat({
     reload,
   } = useChat({
     id,
-    body: { id, selectedChatModel: "chat-model" },
+    body: { id, selectedChatModel: DEFAULT_CHAT_MODEL },
     initialMessages,
     experimental_throttle: 100,
     sendExtraMessageFields: true,
