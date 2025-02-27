@@ -49,6 +49,7 @@ export default function CSVInput() {
     }
 
     setUploadQueue(selectedFiles.map((file) => file.name));
+    toast.loading("Uploading files..", { id: "csv-upload" });
 
     try {
       const uploadPromises = selectedFiles.map((file) => uploadFile(file));
@@ -62,11 +63,12 @@ export default function CSVInput() {
         ...successfullyUploadedAttachments,
       ]);
 
-      toast.success("Files uploaded successfully!");
+      toast.success("Files uploaded successfully!", { id: "csv-upload" });
       setSelectedFiles([]);
       if (fileInputRef.current) fileInputRef.current.value = "";
     } catch (error) {
       console.error("Error uploading files!", error);
+      toast.error("Error uploading files!", { id: "csv-upload" });
     } finally {
       setUploadQueue([]);
     }

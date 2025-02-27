@@ -37,3 +37,8 @@ next-env.d.ts
 
 # clerk configuration (can include secrets)
 /.clerk/
+
+# docker
+docker-compose*.yml
+.dockerignore
+Dockerfile

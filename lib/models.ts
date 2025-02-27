@@ -5,12 +5,16 @@ import {
 } from "ai";
 import { createOllama } from "ollama-ai-provider";
 
-const ollama = createOllama({
+const API_URL =
+  process.env.OLLAMA_API_URL || "http://host.docker.internal:11434/api";
+
+export const ollama = createOllama({
   // optional settings, e.g.
-  baseURL: "http://localhost:11434/api",
+  baseURL: API_URL,
 });
 
-export const DEFAULT_CHAT_MODEL: string = "deepseek-r1:7b";
+export const DEFAULT_CHAT_MODEL: string =
+  process.env.OLLAMA_CHAT_MODEL || "deepseek-r1:7b";
 
 export const myProvider = customProvider({
   languageModels: {
@@ -18,7 +22,14 @@ export const myProvider = customProvider({
       model: ollama("deepseek-r1:7b"),
       middleware: extractReasoningMiddleware({ tagName: "think" }),
     }),
-    "title-model": ollama("llama3.2"),
+    "deepseek-r1:70b": wrapLanguageModel({
+      model: ollama("deepseek-r1:70b"),
+      middleware: extractReasoningMiddleware({ tagName: "think" }),
+    }),
+    "llama3.2": ollama("llama3.2"),
+  },
+  textEmbeddingModels: {
+    "nomic-embed-text": ollama.textEmbeddingModel("nomic-embed-text"),
   },
 });
 
@@ -40,10 +51,11 @@ You are a friendly assistant named IdealAgent! Keep your responses concise and h
   - **Additional Notes** - Any comments or remarks related to the sale.
 - The dataset is a list of purchased items with their respective details such as invoice. So expect the invoice to have duplicates.
 - The **Total Amount** can be 0 at some point, this indicate that the item was sold for free.
+- Each row is unique by combination of Invoice and Item Description.
 
 ### **How to Use This Data in Responses:**
 - When asked about you, you are IdealAgent, an Agent that can provide sales analytics based on the data you have.
-- When asked about a **specific invoice**, retrieve the details for that invoice.
+- When asked about a **specific invoice**, retrieve the details for that invoice. Include all of the items tied to that invoice.
 - For **sales trends**, summarize key insights, such as most purchased items.
 - When asked for **total sales**, sum up the total amount across transactions.
 - If a question is **not related to sales**, respond normally without referencing this dataset.

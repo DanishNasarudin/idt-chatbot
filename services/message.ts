@@ -2,7 +2,7 @@
 import { myProvider } from "@/lib/models";
 import prisma from "@/lib/prisma";
 import { Message, Prisma, Vote } from "@prisma/client";
-import { Message as AIMessage, generateText } from "ai";
+import { Message as AIMessage, embed, generateText } from "ai";
 
 export async function saveMessages({
   messages,
@@ -25,6 +25,10 @@ export async function saveMessages({
           msg.content === null
             ? Prisma.JsonNull
             : (msg.content as Prisma.InputJsonValue),
+        parts:
+          msg.parts === null
+            ? Prisma.JsonNull
+            : (msg.parts as Prisma.InputJsonValue),
       })),
     });
   } catch (error) {
@@ -155,7 +159,7 @@ export async function generateTitleFromUserMessage({
   message: AIMessage;
 }) {
   const { text: title } = await generateText({
-    model: myProvider.languageModel("title-model"),
+    model: myProvider.languageModel("llama3.2"),
     system: `\n
       - you will generate a short title based on the first message a user begins a conversation with
       - ensure it is not more than 80 characters long
@@ -165,4 +169,30 @@ export async function generateTitleFromUserMessage({
   });
 
   return title;
+}
+
+export async function generateEmbeddings(text: string): Promise<number[]> {
+  const { embedding } = await embed({
+    model: myProvider.textEmbeddingModel("nomic-embed-text"),
+    value: text,
+  });
+
+  return embedding; // Returns an array of numbers
+}
+
+export async function classifyUserQuery(userQuery: string): Promise<string> {
+  const { text } = await generateText({
+    model: myProvider.languageModel("llama3.2"),
+    system: `
+      Your job is to classify user queries into one of the following categories:
+      - "TOTAL_SALES" → If the user is asking for the total sum of sales (e.g., "What is the total sum of sales?", "How much was sold in June?", "Total sales")
+      - "INVOICE_SEARCH" → If the user is asking about specific invoices (e.g., "Show Apple invoices", "Find all purchases made by John Doe")
+      - "OTHER" → If the query does not fit the above categories.
+
+      Respond with only one of the categories: "TOTAL_SALES", "INVOICE_SEARCH", or "OTHER".
+    `,
+    prompt: userQuery,
+  });
+
+  return text.trim(); // Expected output: "TOTAL_SALES", "INVOICE_SEARCH", or "OTHER"
 }

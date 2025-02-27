@@ -44,7 +44,7 @@ function PureMessage({ isLoading, message }: MessageProps) {
     [hasReasoning, message, isLoading]
   );
 
-  //   console.log(hasReasoning, reasoning, "CHECK THIS");
+  // console.log(hasReasoning, reasoning, "CHECK THIS");
 
   return (
     <div

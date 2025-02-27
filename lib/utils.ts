@@ -124,6 +124,8 @@ export function convertToUIMessages(
         if (!content) break;
         if (content.type === "text") {
           textContent += content.text;
+        } else if (content.type === "reasoning") {
+          reasoning = content.reasoning;
         }
       }
     }
@@ -143,6 +145,11 @@ export function convertToUIMessages(
 type ResponseMessageWithoutId = CoreToolMessage | CoreAssistantMessage;
 type ResponseMessage = ResponseMessageWithoutId & { id: string };
 
+type Part =
+  | { type: "text"; text: string }
+  | { type: "tool-call"; toolCallId: string }
+  | { type: "reasoning"; reasoning: string };
+
 export function sanitizeResponseMessages({
   messages,
   reasoning,
@@ -150,8 +157,9 @@ export function sanitizeResponseMessages({
   messages: Array<ResponseMessage>;
   reasoning: string | undefined;
 }) {
-  const toolResultIds: Array<string> = [];
+  const toolResultIds: string[] = [];
 
+  // Collect tool-result ids from tool messages.
   for (const message of messages) {
     if (message.role === "tool") {
       for (const content of message.content) {
@@ -163,11 +171,19 @@ export function sanitizeResponseMessages({
   }
 
   const messagesBySanitizedContent = messages.map((message) => {
+    // Non-assistant messages are returned as-is.
     if (message.role !== "assistant") return message;
 
+    // If the content is a simple string, return the message.
     if (typeof message.content === "string") return message;
 
-    const sanitizedContent = message.content.filter((content) =>
+    // Assume the content is originally only text or tool-call parts.
+    const parts = message.content as Array<
+      { type: "text"; text: string } | { type: "tool-call"; toolCallId: string }
+    >;
+
+    // Filter out empty text parts and tool-calls without a matching tool-result.
+    const sanitizedContent: Part[] = parts.filter((content) =>
       content.type === "tool-call"
         ? toolResultIds.includes(content.toolCallId)
         : content.type === "text"
@@ -175,19 +191,20 @@ export function sanitizeResponseMessages({
         : true
     );
 
-    // if (reasoning) {
-    //   // ts-expect-error: reasoning message parts in sdk is wip
-    //   sanitizedContent.push({ type: 'reasoning', reasoning });
-    // }
+    // If there's valid reasoning, add it as a new part.
+    if (reasoning && reasoning.trim().length > 0) {
+      sanitizedContent.push({ type: "reasoning", reasoning });
+    }
 
     return {
       ...message,
+      reasoning,
       content: sanitizedContent,
     };
   });
 
   return messagesBySanitizedContent.filter(
-    (message) => message.content.length > 0
+    (message) => Array.isArray(message.content) && message.content.length > 0
   );
 }
 

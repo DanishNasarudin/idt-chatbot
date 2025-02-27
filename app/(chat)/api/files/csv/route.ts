@@ -1,7 +1,8 @@
 import prisma from "@/lib/prisma";
 import { generateUUID } from "@/lib/utils";
+import { generateEmbeddings } from "@/services/message";
 import { auth } from "@clerk/nextjs/server";
-import { Sales } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 import Papa from "papaparse";
 
@@ -66,8 +67,7 @@ export async function POST(request: Request) {
 
     const parseDate = (dateString: string): Date => {
       const [day, month, year] = dateString.split("/").map(Number);
-      const date = new Date(Date.UTC(year, month - 1, day));
-      return date;
+      return new Date(Date.UTC(year, month - 1, day));
     };
 
     const existingSales = await prisma.sales.findMany({
@@ -78,8 +78,8 @@ export async function POST(request: Request) {
       existingSales.map((sale) => `${sale.invoice}-${sale.item}-${sale.total}`)
     );
 
-    const invoices: Sales[] = cleanData
-      .map((row) => {
+    const invoices: Prisma.SalesCreateManyInput[] = await Promise.all(
+      cleanData.map(async (row) => {
         const customer = row["Addr 1 - Line 1"].includes(row["Co./Last Name"])
           ? row["Addr 1 - Line 1"].trim()
           : [row["Addr 1 - Line 1"].trim(), row["Co./Last Name"].trim()].join(
@@ -104,6 +104,22 @@ export async function POST(request: Request) {
           row["Total"].replace(/^RM/, "").replace(/,/g, "").trim()
         );
 
+        const text = `Invoice: ${row[
+          "Invoice #"
+        ].trim()}, Customer: ${customer}, PurchaseDate: ${parseDate(
+          row["Date"]
+        ).toISOString()}, ItemDescription: ${row[
+          "Description"
+        ]?.trim()}, Quantity: ${quantity}, PricePerUnit: ${price}, Total: ${total}, Payment: ${row[
+          "Payment Method"
+        ]?.trim()}, CustomerAddress: ${address}, Notes: ${
+          row["Comment"]?.trim() || ""
+        }, ${row["Journal Memo"]?.trim() || ""}`;
+
+        const embedding = (await generateEmbeddings(
+          text
+        )) as Prisma.InputJsonValue;
+
         return {
           id: generateUUID(),
           customer,
@@ -117,20 +133,43 @@ export async function POST(request: Request) {
           comment: row["Comment"]?.trim() || "",
           remarks: row["Journal Memo"]?.trim() || "",
           paymentMethod: row["Payment Method"]?.trim(),
+          embedding,
           createdAt: new Date(),
           updatedAt: new Date(),
         };
       })
-      .filter(
-        (row) =>
-          !existingSalesSet.has(`${row.invoice}-${row.item}-${row.total}`)
-      );
+    );
+
+    const newInvoices = invoices.filter(
+      (row) => !existingSalesSet.has(`${row.invoice}-${row.item}-${row.total}`)
+    );
 
     // console.log(invoices.filter((item) => item.invoice === "J0125143"));
     // console.log(invoices[0]);
 
-    if (invoices.length > 0) {
-      await prisma.sales.createMany({ data: invoices });
+    if (newInvoices.length > 0) {
+      const chunkSize = 100;
+      const chunks = chunkArray(newInvoices, chunkSize);
+
+      for (const chunk of chunks) {
+        let inserted = false;
+        while (!inserted) {
+          try {
+            await prisma.sales.createMany({ data: chunk });
+            inserted = true;
+          } catch (error) {
+            if (
+              error instanceof Prisma.PrismaClientKnownRequestError &&
+              error.code === "P1017"
+            ) {
+              await prisma.$disconnect();
+              await prisma.$connect();
+            } else {
+              throw error;
+            }
+          }
+        }
+      }
       return NextResponse.json(
         { message: "Data inserted successfully" },
         { status: 200 }
@@ -148,4 +187,12 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
+}
+
+function chunkArray<T>(array: T[], chunkSize: number): T[][] {
+  const results: T[][] = [];
+  for (let i = 0; i < array.length; i += chunkSize) {
+    results.push(array.slice(i, i + chunkSize));
+  }
+  return results;
 }

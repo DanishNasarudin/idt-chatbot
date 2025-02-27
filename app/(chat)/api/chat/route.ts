@@ -14,7 +14,12 @@ import {
 
 import prisma from "@/lib/prisma";
 import { deleteChatById, getChatById, saveChat } from "@/services/chat";
-import { generateTitleFromUserMessage, saveMessages } from "@/services/message";
+import {
+  classifyUserQuery,
+  generateTitleFromUserMessage,
+  saveMessages,
+} from "@/services/message";
+import { retrieveRelevantSales } from "@/services/sales";
 import { auth } from "@clerk/nextjs/server";
 import { Sales } from "@prisma/client";
 
@@ -56,6 +61,7 @@ export async function POST(request: Request) {
         id: userMessage.id,
         role: userMessage.role,
         content: userMessage.content,
+        parts: [],
         createdAt: new Date(),
         updatedAt: new Date(),
         chatId: id,
@@ -63,11 +69,31 @@ export async function POST(request: Request) {
     ],
   });
 
-  const salesData = await prisma.sales.findMany();
-  const formattedSales = formatSalesData(salesData.slice(50));
+  const queryType = await classifyUserQuery(userMessage.content);
+
+  let relevantSalesData = "";
+
+  if (queryType === "TOTAL_SALES") {
+    const totalSales = await prisma.sales.aggregate({
+      _sum: { total: true },
+    });
+    relevantSalesData = `The total sum of all sales is RM ${
+      totalSales._sum.total?.toFixed(2) || 0
+    }.`;
+  } else if (queryType === "INVOICE_SEARCH" || queryType === "OTHER") {
+    relevantSalesData = await retrieveRelevantSales(userMessage.content);
+  }
+
+  // const salesData = await prisma.sales.findMany({
+  //   orderBy: { invoice: "desc" },
+  // });
+  // const formattedSales = formatSalesData(salesData.slice(50));
+  // const relevantSalesData = await retrieveRelevantSales(userMessage.content);
+
+  console.log(relevantSalesData, queryType, "CHECK SALES");
 
   const updatedPrompt = `
-    ${formattedSales || "No sales data available"}
+    ${relevantSalesData || "No sales data available"}
     Above is the sales data for context.
 
     ${regularPrompt}
@@ -92,11 +118,22 @@ export async function POST(request: Request) {
 
               await saveMessages({
                 messages: sanitizedResponseMessages.map((message) => {
+                  let extractedReasoning = "";
+                  if (Array.isArray(message.content)) {
+                    const reasoningPart = message.content.find(isReasoningPart);
+                    if (reasoningPart) {
+                      extractedReasoning = reasoningPart.reasoning;
+                    }
+                  }
+
                   return {
                     id: message.id,
                     chatId: id,
                     role: message.role,
                     content: message.content as any,
+                    parts: [
+                      { type: "reasoning", reasoning: extractedReasoning },
+                    ],
                     createdAt: new Date(),
                     updatedAt: new Date(),
                   };
@@ -162,4 +199,10 @@ function formatSalesData(sales: Sales[]) {
         `Invoice: ${sale.invoice}, Customer: ${sale.customer}, PurchaseDate: ${sale.purchaseDate}, ItemDescription: ${sale.item}, Quantity: ${sale.quantity}, PricePerUnit: ${sale.price}, Total: ${sale.total}, Payment: ${sale.paymentMethod}, CustomerAddress: ${sale.address}, Notes: ${sale.comment}, ${sale.remarks}`
     )
     .join("\n");
+}
+
+function isReasoningPart(
+  part: any
+): part is { type: "reasoning"; reasoning: string } {
+  return part.type === "reasoning" && typeof part.reasoning === "string";
 }
