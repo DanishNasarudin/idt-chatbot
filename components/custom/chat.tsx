@@ -54,7 +54,7 @@ function PureChat({
 
   const [attachments, setAttachments] = useState<Array<Attachment>>([]);
 
-  console.log(messages, "CHECK AGAIN");
+  // console.log(messages, "CHECK AGAIN");
   // console.log(id, input, isLoading, attachments, messages, "CHECK");
 
   return (

@@ -50,6 +50,7 @@ export async function POST(request: Request) {
 
     const fileBuffer = await file.arrayBuffer();
     const fileContent = Buffer.from(fileBuffer).toString("utf-8");
+    const fileName: string = file.name;
 
     // Parse CSV content using PapaParse
     const { data, errors } = Papa.parse<CSVDataType>(fileContent, {
@@ -129,10 +130,13 @@ export async function POST(request: Request) {
             row["- Line 2"]?.trim(),
             row["- Line 3"]?.trim(),
             row["- Line 4"]?.trim(),
-            row["Destination Country"].trim() || "Undefined",
+            row["Destination Country"].trim(),
           ]
             .filter(Boolean)
             .join(", ");
+          const addressSanitise = address === "" ? "Undefined" : address;
+          const item = row["Description"]?.trim();
+          const itemSanitise = item === "" ? "Undefined" : item;
           const quantity = parseInt(row["Quantity"], 10);
           const price = parseFloat(
             row["Price"].replace(/^RM/, "").replace(/,/g, "").trim()
@@ -144,13 +148,14 @@ export async function POST(request: Request) {
             "Invoice #"
           ].trim()}, Customer: ${customer}, PurchaseDate: ${parseDate(
             row["Date"]
-          ).toISOString()}, ItemDescription: ${row[
-            "Description"
-          ]?.trim()}, Quantity: ${quantity}, PricePerUnit: ${price}, Total: ${total}, Payment: ${row[
+          ).toISOString()}, ItemDescription: ${itemSanitise}, Quantity: ${quantity}, PricePerUnit: ${price}, Total: ${total}, Payment: ${row[
             "Payment Method"
-          ]?.trim()}, CustomerAddress: ${address}, Notes: ${
+          ]?.trim()}, CustomerAddress: ${addressSanitise}, Notes: ${
             row["Comment"]?.trim() || ""
           }, ${row["Journal Memo"]?.trim() || ""}`;
+          const paymentMethod = row["Payment Method"]?.trim();
+          const paymentMethodSanitise =
+            paymentMethod === "" ? "Undefined" : paymentMethod;
 
           const embedding = (await generateEmbeddings(
             text
@@ -161,14 +166,14 @@ export async function POST(request: Request) {
             customer,
             invoice: row["Invoice #"].trim(),
             purchaseDate: parseDate(row["Date"]),
-            address,
-            item: row["Description"]?.trim(),
+            address: addressSanitise,
+            item: itemSanitise,
             quantity,
             price,
             total,
             comment: row["Comment"]?.trim() || "",
             remarks: row["Journal Memo"]?.trim() || "",
-            paymentMethod: row["Payment Method"]?.trim(),
+            paymentMethod: paymentMethodSanitise,
             embedding,
             createdAt: new Date(),
             updatedAt: new Date(),
@@ -177,6 +182,7 @@ export async function POST(request: Request) {
           // Send embedding progress update
           const embeddingProgress =
             JSON.stringify({
+              id: fileName,
               phase: "embedding",
               progress: i + 1,
               total: totalEmbeddingCount,
@@ -194,6 +200,7 @@ export async function POST(request: Request) {
         if (totalInsertionCount === 0) {
           const insertionProgress =
             JSON.stringify({
+              id: fileName,
               phase: "insertion",
               progress: totalInsertionCount,
               total: totalInsertionCount,
@@ -218,6 +225,7 @@ export async function POST(request: Request) {
               insertedCount += chunk.length;
               const insertionProgress =
                 JSON.stringify({
+                  id: fileName,
                   phase: "insertion",
                   progress: insertedCount,
                   total: totalInsertionCount,
@@ -235,6 +243,7 @@ export async function POST(request: Request) {
                 if (retries >= maxRetries) {
                   const errorMessage =
                     JSON.stringify({
+                      id: fileName,
                       phase: "error",
                       message: "Max retries reached during insertion",
                     }) + "\n";
@@ -249,6 +258,7 @@ export async function POST(request: Request) {
                 console.error(`Error: ${error.message}`);
                 const errorMessage =
                   JSON.stringify({
+                    id: fileName,
                     phase: "error",
                     message:
                       `${error.message}: ${JSON.stringify(chunk)}` ||

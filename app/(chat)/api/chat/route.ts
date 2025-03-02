@@ -185,13 +185,13 @@ Ensure invoice numbers, customer names, and all details exactly match the provid
         onFinish: async ({ response, reasoning }) => {
           if (session.userId) {
             try {
-              console.log(
-                response,
-                response.messages[0],
-                response.messages[1],
-                response.messages[2],
-                "CHECK ALLL"
-              );
+              // console.log(
+              //   response,
+              //   response.messages[0],
+              //   response.messages[1],
+              //   response.messages[2],
+              //   "CHECK ALLL"
+              // );
               const sanitizedResponseMessages = sanitizeResponseMessages({
                 messages: response.messages,
                 reasoning,

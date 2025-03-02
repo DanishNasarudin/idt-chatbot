@@ -61,11 +61,17 @@ export const getSalesAnalytics = tool({
 
     if (analyticsType === "TOTAL_SALES") {
       const total = salesData.reduce((acc, sale) => acc + sale.total, 0);
-      return `Total sales: RM ${total.toFixed(2)}`;
+      return `Total sales: RM ${total.toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`;
     } else if (analyticsType === "AVERAGE_SALES") {
       const total = salesData.reduce((acc, sale) => acc + sale.total, 0);
       const average = salesData.length > 0 ? total / salesData.length : 0;
-      return `Average sale: RM ${average.toFixed(2)}`;
+      return `Average sale: RM ${average.toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`;
     } else if (analyticsType === "SALES_COUNT") {
       return `Number of sales: ${salesData.length}`;
     }
@@ -196,7 +202,10 @@ export const getSalesSummary = tool({
         ([method, data]) =>
           `Payment Method: ${method}, Count: ${
             data.count
-          }, Total: RM ${data.total.toFixed(2)}`
+          }, Total: RM ${data.total.toLocaleString("en-US", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}`
       )
       .join("\n");
 
@@ -279,8 +288,12 @@ export const getSalesTrend = tool({
     return Object.entries(groups)
       .map(
         ([period, data]) =>
-          `Period: ${period}, Total Sales: RM ${data.totalSales.toFixed(
-            2
+          `Period: ${period}, Total Sales: RM ${data.totalSales.toLocaleString(
+            "en-US",
+            {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            }
           )}, Sales Count: ${data.count}`
       )
       .join("\n");
@@ -334,7 +347,13 @@ export const getTopCustomers = tool({
       .slice(0, limit || 5)
       .map(
         ([customer, total]) =>
-          `Customer: ${customer}, Total Sales: RM ${total.toFixed(2)}`
+          `Customer: ${customer}, Total Sales: RM ${total.toLocaleString(
+            "en-US",
+            {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            }
+          )}`
       )
       .join("\n");
 
@@ -402,7 +421,10 @@ export const getItemSalesAnalysis = tool({
           data.totalQuantity
         }, Total Sales: RM ${data.totalSales.toFixed(
           2
-        )}, Average Price: RM ${averagePrice.toFixed(2)}`;
+        )}, Average Price: RM ${averagePrice.toLocaleString("en-US", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })}`;
       })
       .join("\n");
 
@@ -478,7 +500,10 @@ export const getSalesByRegion = tool({
         ([address, data]) =>
           `Address: ${address}, Count: ${
             data.count
-          }, Total: RM ${data.total.toFixed(2)}`
+          }, Total: RM ${data.total.toLocaleString("en-US", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}`
       )
       .join("\n");
     return result;
@@ -561,7 +586,10 @@ export const getHotItemsByRegion = tool({
         (item) =>
           `Item: ${item.item}, Quantity Sold: ${
             item.totalQuantity
-          }, Total Sales: RM ${item.totalSales.toFixed(2)}`
+          }, Total Sales: RM ${item.totalSales.toLocaleString("en-US", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}`
       )
       .join("\n");
   },
@@ -622,7 +650,13 @@ export const getInvoiceTrendsByRegion = tool({
         invoiceCount > 0 ? totalInvoiceAmount / invoiceCount : 0;
       return `Region Filter: ${region}\nUnique Invoices: ${invoiceCount}\nTotal Invoice Amount: RM ${totalInvoiceAmount.toFixed(
         2
-      )}\nAverage Invoice Value: RM ${averageInvoiceValue.toFixed(2)}`;
+      )}\nAverage Invoice Value: RM ${averageInvoiceValue.toLocaleString(
+        "en-US",
+        {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        }
+      )}`;
     } else {
       // Group by full address.
       const regionMap: Record<
@@ -649,7 +683,13 @@ export const getInvoiceTrendsByRegion = tool({
           invoiceCount > 0 ? totalInvoiceAmount / invoiceCount : 0;
         return `Address: ${addr}, Unique Invoices: ${invoiceCount}, Total Invoice Amount: RM ${totalInvoiceAmount.toFixed(
           2
-        )}, Average Invoice Value: RM ${averageInvoiceValue.toFixed(2)}`;
+        )}, Average Invoice Value: RM ${averageInvoiceValue.toLocaleString(
+          "en-US",
+          {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          }
+        )}`;
       });
       return result.join("\n");
     }
@@ -686,9 +726,13 @@ export const getInvoiceDetails = tool({
             sale.address
           }, Item: ${sale.item}, Quantity: ${
             sale.quantity
-          }, Price: RM ${sale.price.toFixed(2)}, Total: RM ${sale.total.toFixed(
-            2
-          )}, Payment: ${sale.paymentMethod}`
+          }, Price: RM ${sale.price.toLocaleString("en-US", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}, Total: RM ${sale.total.toLocaleString("en-US", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}, Payment: ${sale.paymentMethod}`
       )
       .join("\n");
 
@@ -824,9 +868,10 @@ export const getTopAggregates = tool({
         (groupData) =>
           `Group (${groupBy}): ${groupData.group}, Count: ${
             groupData.count
-          }, Total Sales: RM ${groupData.totalSales.toFixed(
-            2
-          )}, Total Quantity: ${groupData.totalQuantity}`
+          }, Total Sales: RM ${groupData.totalSales.toLocaleString("en-US", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}, Total Quantity: ${groupData.totalQuantity}`
       )
       .join("\n");
   },
