@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "docker:build": "docker build . --platform linux/amd64 -t ghcr.io/danishnasarudin/idt-chatbot:latest",
+    "docker:push": "docker push ghcr.io/danishnasarudin/idt-chatbot:latest",
+    "docker:deploy": "npm run docker:build && npm run docker:push"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.12.0",

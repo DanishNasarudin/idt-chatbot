@@ -12,10 +12,10 @@ export default function NavbarOpenButton() {
     <motion.div
       animate={String(navbarIsOpen)}
       variants={{
-        false: { opacity: 1 },
-        true: { opacity: 0, pointerEvents: "none" },
+        false: { opacity: 1, position: "static" },
+        true: { opacity: 0, pointerEvents: "none", position: "absolute" },
       }}
-      initial={{ opacity: 0 }}
+      initial={{ opacity: 0, position: "absolute" }}
       className="flex"
     >
       <PanelButton tooltip="Open sidebar" />

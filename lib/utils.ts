@@ -145,7 +145,7 @@ export function convertToUIMessages(
 type ResponseMessageWithoutId = CoreToolMessage | CoreAssistantMessage;
 type ResponseMessage = ResponseMessageWithoutId & { id: string };
 
-type Part =
+export type Part =
   | { type: "text"; text: string }
   | { type: "tool-call"; toolCallId: string }
   | { type: "reasoning"; reasoning: string };
@@ -158,6 +158,8 @@ export function sanitizeResponseMessages({
   reasoning: string | undefined;
 }) {
   const toolResultIds: string[] = [];
+
+  // console.log(messages[0]);
 
   // Collect tool-result ids from tool messages.
   for (const message of messages) {

@@ -15,25 +15,49 @@ export default function CSVInput() {
     const formData = new FormData();
     formData.append("file", file);
 
-    try {
-      const response = await fetch("/api/files/csv", {
-        method: "POST",
-        body: formData,
-      });
+    const response = await fetch("/api/files/csv", {
+      method: "POST",
+      body: formData,
+    });
 
-      if (response.ok) {
-        const data = await response.json();
-        return {
-          url: data.url,
-          name: data.pathname,
-          contentType: data.contentType,
-        };
+    if (!response.body) {
+      throw new Error("No response body");
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder("utf-8");
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value, { stream: true });
+        const messages = chunk.split("\n").filter(Boolean);
+        messages.forEach((message) => {
+          try {
+            const data = JSON.parse(message);
+            if (data.phase === "embedding") {
+              toast.loading(`Embedding: ${data.progress} of ${data.total}`, {
+                id: "csv-upload",
+              });
+            } else if (data.phase === "insertion") {
+              toast.loading(`Insertion: ${data.progress} of ${data.total}`, {
+                id: "csv-upload",
+              });
+            } else if (data.phase === "error") {
+              toast.error(`Error: ${data.message}`, { id: "csv-upload" });
+              throw new Error(`Error: ${data.message}`);
+            }
+          } catch (err) {
+            console.error("Error parsing progress message", err);
+          }
+        });
       }
-      const { error } = await response.json();
-      toast.error(error);
     } catch (error) {
-      console.log(error);
-      toast.error(`Failed to upload file, please try again!, Error: ${error}`);
+      console.error("Stream encountered an error:", error);
+      toast.error("An error occurred while processing the stream.", {
+        id: "csv-upload",
+      });
     }
   };
 

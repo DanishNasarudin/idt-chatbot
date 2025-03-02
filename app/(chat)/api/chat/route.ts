@@ -20,6 +20,22 @@ import {
   saveMessages,
 } from "@/services/message";
 import { retrieveRelevantSales } from "@/services/sales";
+import {
+  getHotItemsByRegion,
+  getInformation,
+  getInvoiceDetails,
+  getInvoiceTrendsByRegion,
+  getItemSalesAnalysis,
+  getSalesAnalytics,
+  getSalesByRegion,
+  getSalesFiltered,
+  getSalesSummary,
+  getSalesTrend,
+  getTopAggregates,
+  getTopCustomers,
+  listPaymentMethods,
+  listRegions,
+} from "@/services/tools";
 import { auth } from "@clerk/nextjs/server";
 import { Sales } from "@prisma/client";
 
@@ -55,6 +71,8 @@ export async function POST(request: Request) {
     await saveChat({ id, userId: session.userId, title });
   }
 
+  // console.log(userMessage, messages);
+
   await saveMessages({
     messages: [
       {
@@ -71,46 +89,109 @@ export async function POST(request: Request) {
 
   const queryType = await classifyUserQuery(userMessage.content);
 
-  let relevantSalesData = "";
+  // let relevantSalesData = "";
 
-  if (queryType === "TOTAL_SALES") {
-    const totalSales = await prisma.sales.aggregate({
-      _sum: { total: true },
-    });
-    relevantSalesData = `The total sum of all sales is RM ${
-      totalSales._sum.total?.toFixed(2) || 0
-    }.`;
-  } else if (queryType === "INVOICE_SEARCH" || queryType === "OTHER") {
-    relevantSalesData = await retrieveRelevantSales(userMessage.content);
-  }
+  // if (queryType === "TOTAL_SALES") {
+  //   const totalSales = await prisma.sales.aggregate({
+  //     _sum: { total: true },
+  //   });
+  //   relevantSalesData = `The total sum of all sales is RM ${
+  //     totalSales._sum.total?.toFixed(2) || 0
+  //   }.`;
+  // } else if (queryType === "INVOICE_SEARCH" || queryType === "OTHER") {
+  //   relevantSalesData = await retrieveRelevantSales(userMessage.content);
+  // }
 
-  // const salesData = await prisma.sales.findMany({
-  //   orderBy: { invoice: "desc" },
-  // });
-  // const formattedSales = formatSalesData(salesData.slice(50));
-  // const relevantSalesData = await retrieveRelevantSales(userMessage.content);
-
-  console.log(relevantSalesData, queryType, "CHECK SALES");
+  const salesData = await prisma.sales.findMany({
+    orderBy: { invoice: "desc" },
+  });
+  const formattedSales = formatSalesData(salesData);
+  const relevantSalesData = await retrieveRelevantSales(userMessage.content);
 
   const updatedPrompt = `
-    ${relevantSalesData || "No sales data available"}
-    Above is the sales data for context.
+  ${userMessage.content}
 
-    ${regularPrompt}
+  Below is the sales data for context:
+  ${relevantSalesData || "No sales data available"}
+  `;
+
+  const contextMessage: UIMessage = {
+    id: generateUUID(),
+    role: "user",
+    content: `### SALES DATA START
+${relevantSalesData || "No sales data available"}
+### SALES DATA END
+
+INSTRUCTIONS: For any sales query, ONLY use the above data. Do NOT hallucinate or generate mock data.
+Ensure invoice numbers, customer names, and all details exactly match the provided sales data.`,
+    parts: [],
+    createdAt: new Date(),
+  };
+
+  const sanitizeMessages = messages.map((message) => ({
+    ...message,
+    role: (message.role as any) === "tool" ? "assistant" : message.role,
+  }));
+
+  const messagesWithContext: UIMessage[] =
+    selectedChatModel === "deepseek-r1:70b" ||
+    selectedChatModel === "deepseek-r1:7b"
+      ? [contextMessage, ...sanitizeMessages]
+      : sanitizeMessages;
+
+  const systemPrompt = (chatModel?: string) => {
+    if (chatModel === "deepseek-r1:70b" || chatModel === "deepseek-r1:7b") {
+      return `${regularPrompt}
+
+    ### SALES DATA START
+    ${relevantSalesData || "No sales data available"}
+    ### SALES DATA END
+
+    INSTRUCTIONS: For any sales query, ONLY use the above data. Do NOT hallucinate or generate mock data.
+    Ensure invoice numbers, customer names, and all details exactly match the provided sales data.
     `;
+    } else {
+      return `${regularPrompt}`;
+    }
+  };
+
+  // console.log(
+  //   relevantSalesData,
+  //   systemPrompt(),
+  //   selectedChatModel,
+  //   "CHECK SALES"
+  // );
+
+  // console.log(messagesWithContext, "CHECK MESSAGE");
+  console.log(selectedChatModel, "CHAT MODEL");
+
+  const experimentalActiveTools =
+    selectedChatModel === "deepseek-r1:70b" ||
+    selectedChatModel === "deepseek-r1:7b"
+      ? []
+      : Object.keys(toolsMapping);
 
   return createDataStreamResponse({
     execute: (dataStream) => {
       const result = streamText({
         model: myProvider.languageModel(selectedChatModel),
-        system: updatedPrompt,
-        messages,
+        system: systemPrompt(selectedChatModel),
+        messages: messagesWithContext,
         maxSteps: 5,
+        experimental_activeTools: experimentalActiveTools,
+        tools: toolsMapping,
         experimental_transform: smoothStream({ chunking: "word" }),
         experimental_generateMessageId: generateUUID,
         onFinish: async ({ response, reasoning }) => {
           if (session.userId) {
             try {
+              console.log(
+                response,
+                response.messages[0],
+                response.messages[1],
+                response.messages[2],
+                "CHECK ALLL"
+              );
               const sanitizedResponseMessages = sanitizeResponseMessages({
                 messages: response.messages,
                 reasoning,
@@ -119,6 +200,9 @@ export async function POST(request: Request) {
               await saveMessages({
                 messages: sanitizedResponseMessages.map((message) => {
                   let extractedReasoning = "";
+
+                  // console.log(message.content, "CHECK SANTI");
+
                   if (Array.isArray(message.content)) {
                     const reasoningPart = message.content.find(isReasoningPart);
                     if (reasoningPart) {
@@ -131,9 +215,15 @@ export async function POST(request: Request) {
                     chatId: id,
                     role: message.role,
                     content: message.content as any,
-                    parts: [
-                      { type: "reasoning", reasoning: extractedReasoning },
-                    ],
+                    parts:
+                      extractedReasoning === ""
+                        ? []
+                        : [
+                            {
+                              type: "reasoning",
+                              reasoning: extractedReasoning,
+                            },
+                          ],
                     createdAt: new Date(),
                     updatedAt: new Date(),
                   };
@@ -206,3 +296,37 @@ function isReasoningPart(
 ): part is { type: "reasoning"; reasoning: string } {
   return part.type === "reasoning" && typeof part.reasoning === "string";
 }
+
+type ToolsMapping<T = any> = Record<string, T>;
+
+function addUnderscoreAliases<T extends Record<string, any>>(
+  tools: T
+): T & ToolsMapping<T[keyof T]> {
+  const updatedTools = { ...tools } as Record<string, T[keyof T]>;
+  for (const key in tools) {
+    const underscoreKey = key;
+    if (!(underscoreKey in updatedTools)) {
+      (updatedTools as any)[underscoreKey] = tools[key];
+    }
+  }
+  return updatedTools as T & ToolsMapping<T[keyof T]>;
+}
+
+const baseTools = {
+  getSalesAnalytics,
+  getSalesFiltered,
+  getSalesSummary,
+  getInformation,
+  getSalesTrend,
+  getTopCustomers,
+  getItemSalesAnalysis,
+  listPaymentMethods,
+  getSalesByRegion,
+  getHotItemsByRegion,
+  getInvoiceTrendsByRegion,
+  getInvoiceDetails,
+  listRegions,
+  getTopAggregates,
+};
+
+const toolsMapping = addUnderscoreAliases(baseTools);

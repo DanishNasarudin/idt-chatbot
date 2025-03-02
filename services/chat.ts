@@ -2,6 +2,7 @@
 
 import prisma from "@/lib/prisma";
 import { Chat } from "@prisma/client";
+import { cookies } from "next/headers";
 
 export async function saveChat({
   id,
@@ -69,4 +70,9 @@ export async function getChatById({
     console.error("Failed to get chat by id from database");
     throw error;
   }
+}
+
+export async function saveChatModelAsCookie(model: string) {
+  const cookieStore = await cookies();
+  cookieStore.set("chat-model", model);
 }

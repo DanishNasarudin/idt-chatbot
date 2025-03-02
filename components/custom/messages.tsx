@@ -1,4 +1,5 @@
 "use client";
+import { useStartTime } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
 import { Message as AIMessageType, ChatRequestOptions } from "ai";
 import equal from "fast-deep-equal";
@@ -41,7 +42,18 @@ function PureMessages({
     });
   }, [messages]);
 
-  //   console.log(isLoading, "LOADING?");
+  // console.log(isLoading, "LOADING?");
+  const [startTime, setStartTime] = useStartTime();
+
+  if (
+    isLoading &&
+    messages.length > 0 &&
+    messages[messages.length - 1].role === "user"
+  ) {
+    if (startTime === null) {
+      setStartTime(Date.now());
+    }
+  }
 
   return (
     <section
@@ -52,28 +64,38 @@ function PureMessages({
     >
       <div className="h-[8px] bg-background flex-none"></div>
       {messages && messages.length > 0 ? (
-        messages.map((message, index) => {
-          const messageContent = message.content.trim();
-          const hasIncompleteReasoning =
-            message.parts?.some(
-              (part) => part.type === "reasoning" && messageContent === ""
-            ) || false;
+        messages
+          .filter(
+            (message) =>
+              !(
+                message.role === ("tool" as any) ||
+                (message.role === "assistant" && message.parts?.length === 0)
+              )
+          )
+          .map((message, index) => {
+            const messageContent = message.content.trim();
+            const hasIncompleteReasoning =
+              message.parts?.some(
+                (part) => part.type === "reasoning" && messageContent === ""
+              ) || false;
 
-          //   console.log(hasIncompleteReasoning, "CHECK");
+            //   console.log(hasIncompleteReasoning, "CHECK");
 
-          return (
-            <div key={message.id}>
-              <Message
-                chatId={chatId}
-                message={message}
-                isLoading={hasIncompleteReasoning}
-                setMessages={setMessages}
-                reload={reload}
-                isReadonly={isReadonly}
-              />
-            </div>
-          );
-        })
+            // console.log(message.content, "CHECK OUTSIDE");
+
+            return (
+              <div key={message.id} className={`${message.role}-${message.id}`}>
+                <Message
+                  chatId={chatId}
+                  message={message}
+                  isLoading={hasIncompleteReasoning}
+                  setMessages={setMessages}
+                  reload={reload}
+                  isReadonly={isReadonly}
+                />
+              </div>
+            );
+          })
       ) : (
         <Placeholder
           icon={BotMessageSquareIcon}

@@ -66,10 +66,11 @@ function PureMultimodalInput({
   const { width } = useWindowSize();
 
   useEffect(() => {
-    if (textareaRef.current) {
+    if (textareaRef.current && width && width > 768) {
+      textareaRef.current.focus();
       adjustHeight();
     }
-  }, []);
+  }, [width]);
 
   const adjustHeight = () => {
     if (textareaRef.current) {
@@ -239,7 +240,6 @@ function PureMultimodalInput({
           className
         )}
         rows={2}
-        autoFocus
         onKeyDown={(event) => {
           if (event.key === "Enter" && !event.shiftKey) {
             event.preventDefault();

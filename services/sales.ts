@@ -29,23 +29,17 @@ function cosineSimilarity(a: number[], b: number[]): number {
   return dot / (normA * normB);
 }
 
+function euclideanDistance(a: number[], b: number[]): number {
+  return Math.sqrt(a.reduce((sum, val, i) => sum + Math.pow(val - b[i], 2), 0));
+}
+
+function dotProduct(a: number[], b: number[]): number {
+  return a.reduce((sum, val, i) => sum + val * b[i], 0);
+}
+
 export async function retrieveRelevantSales(
   userQuery: string
 ): Promise<string> {
-  if (
-    userQuery.toLowerCase().includes("total sum") ||
-    userQuery.toLowerCase().includes("total sales") ||
-    userQuery.toLowerCase().includes("how much was sold")
-  ) {
-    const totalSales = await prisma.sales.aggregate({
-      _sum: { total: true },
-    });
-
-    return `The total sum of all sales is RM ${
-      totalSales._sum.total?.toFixed(2) || 0
-    }.`;
-  }
-
   const queryEmbedding = await generateEmbeddings(userQuery);
 
   // Fetch all sales records (for large datasets, consider batching or indexing)
@@ -56,20 +50,29 @@ export async function retrieveRelevantSales(
 
   // Calculate similarity for each sale record
   const scoredSales = salesData
-    .map((sale) => ({
-      text: `Invoice: ${sale.invoice}, Customer: ${
-        sale.customer
-      }, PurchaseDate: ${sale.purchaseDate.toISOString()}, ItemDescription: ${
-        sale.item
-      }, Quantity: ${sale.quantity}, PricePerUnit: ${sale.price}, Total: ${
-        sale.total
-      }, Payment: ${sale.paymentMethod}, CustomerAddress: ${
-        sale.address
-      }, Notes: ${sale.comment}, ${sale.remarks}`,
-      score: cosineSimilarity(queryEmbedding, sale.embedding as number[]),
-    }))
+    .map((sale) => {
+      const cosineScore = cosineSimilarity(
+        queryEmbedding,
+        sale.embedding as number[]
+      );
+      const keywordScore = userQuery.includes(sale.invoice) ? 1.5 : 1;
+      return {
+        text: `Invoice: ${sale.invoice}, Customer: ${
+          sale.customer
+        }, PurchaseDate: ${sale.purchaseDate.toISOString()}, ItemDescription: ${
+          sale.item
+        }, Quantity: ${sale.quantity}, PricePerUnit: ${sale.price}, Total: ${
+          sale.total
+        }, Payment: ${sale.paymentMethod}, CustomerAddress: ${
+          sale.address
+        }, Notes: ${sale.comment}, ${sale.remarks}`,
+        score: cosineScore * keywordScore,
+      };
+    })
     .sort((a, b) => b.score - a.score) // Sort by highest similarity
-    .slice(0, 10); // Keep top 10 matches
+    .slice(0, 20); // Keep top 10 matches
+
+  //   console.log(scoredSales, "CHECK SCORE");
 
   return scoredSales.map((sale) => sale.text).join("\n");
 }

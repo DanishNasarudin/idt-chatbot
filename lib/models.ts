@@ -26,12 +26,56 @@ export const myProvider = customProvider({
       model: ollama("deepseek-r1:70b"),
       middleware: extractReasoningMiddleware({ tagName: "think" }),
     }),
-    "llama3.2": ollama("llama3.2"),
+    "llama3.3:latest": ollama("llama3.3:latest", { simulateStreaming: true }),
+    "qwen2.5:7b": ollama("qwen2.5:7b", { simulateStreaming: true }),
+    "qwen2.5:72b": ollama("qwen2.5:72b", { simulateStreaming: true }),
+    "small-model": ollama("llama3.2", { simulateStreaming: true }),
   },
   textEmbeddingModels: {
-    "nomic-embed-text": ollama.textEmbeddingModel("nomic-embed-text"),
+    "embedding-model": ollama.textEmbeddingModel(
+      "avr/sfr-embedding-mistral:latest"
+    ),
   },
 });
+
+interface ChatModel {
+  id: string;
+  name: string;
+  description: string;
+}
+
+export const chatModels: Array<ChatModel> = [
+  {
+    id: "small-model",
+    name: "Small model (llama3.2)",
+    description: "Small model for fast reasoning",
+  },
+  // {
+  //   id: "deepseek-r1:7b",
+  //   name: "Small model (deepseek-r1:7b)",
+  //   description: "Small model for fast reasoning",
+  // },
+  // {
+  //   id: "deepseek-r1:70b",
+  //   name: "Large model (deepseek-r1:70b)",
+  //   description: "Large model for complex reasoning",
+  // },
+  // {
+  //   id: "qwen2.5:7b",
+  //   name: "Small model (qwen2.5:7b)",
+  //   description: "Small model for fast reasoning",
+  // },
+  // {
+  //   id: "qwen2.5:72b",
+  //   name: "Large model (qwen2.5:72b)",
+  //   description: "Large model for complex reasoning",
+  // },
+  {
+    id: "llama3.3:latest",
+    name: "Large model (llama3.3:latest)",
+    description: "Large model for complex reasoning",
+  },
+];
 
 export const regularPrompt = `
 You are a friendly assistant named IdealAgent! Keep your responses concise and helpful.
@@ -62,7 +106,9 @@ You are a friendly assistant named IdealAgent! Keep your responses concise and h
 - When asked for any analytics, accurately take user's request, analyse the data and generate appropriate result.
 
 ### **Additional Instructions:**
-- Always try to respond based on provided data.
+- Always respond ONLY based on provided sales data.
 - Format responses clearly and concisely.
 - If no matching data is found, state that politely (e.g., *"No matching sales record was found."*).
+- Always check every chat message for context.
+- ONLY use tools when required.
 `;

@@ -1,10 +1,12 @@
+import { useStartTime } from "@/lib/hooks";
+import { listOfTools } from "@/lib/tools";
 import { cn } from "@/lib/utils";
 import { useUser } from "@clerk/nextjs";
 import { Message as AIMessageType, ChatRequestOptions } from "ai";
 import equal from "fast-deep-equal";
-import { BotMessageSquareIcon } from "lucide-react";
+import { BotMessageSquareIcon, LoaderIcon } from "lucide-react";
 import { motion } from "motion/react";
-import { memo, useMemo } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import { Avatar, AvatarFallback } from "../ui/avatar";
 import { Markdown } from "./markdown";
 import { MessageReasoning } from "./message-reasoning";
@@ -44,7 +46,32 @@ function PureMessage({ isLoading, message }: MessageProps) {
     [hasReasoning, message, isLoading]
   );
 
-  // console.log(hasReasoning, reasoning, "CHECK THIS");
+  const hasTool = useMemo(
+    () =>
+      message.parts?.some((part) => part.type === "tool-invocation") || false,
+    [message, isLoading]
+  );
+
+  const tool = useMemo(
+    () =>
+      hasTool
+        ? message.parts?.map((part) => {
+            if (part.type === "tool-invocation") return part.toolInvocation;
+          })
+        : undefined,
+    [hasTool, message, isLoading]
+  );
+
+  const showTimer =
+    (hasReasoning && message.content === "") ||
+    (hasTool && message.content === "");
+
+  // console.log(hasTool, tool, message.content, "CHECK THIS");
+  // if (message.role == ("tool" as any)) console.log("GOT IT");
+
+  // if (message.role == ("tool" as any)) return null;
+
+  // console.log(hasReasoning, hasTool && message.content === "", "CHECK TIMER");
 
   return (
     <div
@@ -73,6 +100,54 @@ function PureMessage({ isLoading, message }: MessageProps) {
           <MessageReasoning isLoading={isLoading} reasoning={reasoning} />
         )}
         <Markdown>{message.content as string}</Markdown>
+
+        {tool && tool.length > 0 && (
+          <div className="flex flex-col gap-4">
+            {tool.map((toolInvocation) => {
+              if (!toolInvocation) return;
+              const { toolName, toolCallId, state, args } = toolInvocation;
+              const toolDescription =
+                `${toolName}: ${listOfTools[toolName]?.description}` ||
+                `${toolName}: Getting data..`;
+
+              if (state === "result" && message.content === "") {
+                return (
+                  <div key={toolCallId}>
+                    <div className="flex flex-row gap-2 items-center">
+                      <div className="font-medium">
+                        Processing retrieved {toolName} data
+                      </div>
+                      <div className="animate-spin">
+                        <LoaderIcon />
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+              if (state === "call")
+                return (
+                  <div key={toolCallId}>
+                    <div className="flex flex-row gap-2 items-center">
+                      <div className="font-medium">{toolDescription}</div>
+                      <div className="animate-spin">
+                        <LoaderIcon />
+                      </div>
+                    </div>
+                  </div>
+                );
+              if (state === "result")
+                return (
+                  <div
+                    key={toolCallId}
+                    className="text-xs text-muted-foreground"
+                  >
+                    Used Function: {toolName}
+                  </div>
+                );
+            })}
+          </div>
+        )}
+        {showTimer && <TimerDisplay isLoading={showTimer} />}
       </span>
       <div className="w-[40px] flex-none">
         {/* {message.role === "user" && (
@@ -89,6 +164,7 @@ function PureMessage({ isLoading, message }: MessageProps) {
 export const Message = memo(PureMessage, (prevProps, nextProps) => {
   if (prevProps.isLoading !== nextProps.isLoading) return false;
   if (prevProps.message.content !== nextProps.message.content) return false;
+  if (prevProps.message.role !== nextProps.message.role) return false;
   if (!equal(prevProps.message.parts, nextProps.message.parts)) return false;
 
   return true;
@@ -129,5 +205,34 @@ export const ThinkingMessage = () => {
         <div className="w-[40px] flex-none"></div>
       </div>
     </motion.div>
+  );
+};
+
+type TimerDisplayProps = {
+  isLoading: boolean;
+};
+
+const TimerDisplay: React.FC<TimerDisplayProps> = ({ isLoading }) => {
+  const [startTime, setStartTime] = useStartTime();
+  const [elapsed, setElapsed] = useState<number>(0);
+
+  useEffect(() => {
+    if (!isLoading && startTime !== null && elapsed === 0) {
+      setElapsed(Date.now() - startTime);
+      setStartTime(null);
+    }
+  }, [isLoading, startTime, elapsed, setStartTime]);
+
+  if (isLoading || elapsed === 0) return null;
+
+  const totalSeconds = Math.floor(elapsed / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+
+  return (
+    <div className="text-xs text-muted-foreground">
+      Total Processing Time:{" "}
+      {minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`}
+    </div>
   );
 };

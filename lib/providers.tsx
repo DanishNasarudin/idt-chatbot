@@ -1,7 +1,7 @@
 "use client";
 
+import { Toaster } from "@/components/ui/sonner";
 import React from "react";
-import { Toaster } from "sonner";
 import ClerkProvider from "./providers/clerk-provider";
 import { ThemeProvider } from "./providers/theme-provider";
 

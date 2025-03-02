@@ -2,26 +2,29 @@
 
 import { useChat } from "@ai-sdk/react";
 import type { Attachment, Message } from "ai";
-import { useState } from "react";
+import { memo, useState } from "react";
 import { useSWRConfig } from "swr";
 
 import { cn, generateUUID } from "@/lib/utils";
 
-import { DEFAULT_CHAT_MODEL } from "@/lib/models";
+import { useStartTime } from "@/lib/hooks";
 import { toast } from "sonner";
 import { Messages } from "./messages";
 import { MultimodalInput } from "./multimodal-input";
 
-export function Chat({
+function PureChat({
   id,
   initialMessages,
   isReadonly,
+  selectedChatModel,
 }: {
   id: string;
   initialMessages: Array<Message>;
   isReadonly: boolean;
+  selectedChatModel: string;
 }) {
   const { mutate } = useSWRConfig();
+  const [_, setStartTime] = useStartTime();
 
   const {
     messages,
@@ -35,7 +38,7 @@ export function Chat({
     reload,
   } = useChat({
     id,
-    body: { id, selectedChatModel: DEFAULT_CHAT_MODEL },
+    body: { id, selectedChatModel: selectedChatModel },
     initialMessages,
     experimental_throttle: 100,
     sendExtraMessageFields: true,
@@ -44,11 +47,15 @@ export function Chat({
       mutate("/api/history");
     },
     onError: (error) => {
-      toast.error("An error occured, please try again!");
+      setStartTime(null);
+      toast.error(`An error occured, please try again! ${error}`);
     },
   });
 
   const [attachments, setAttachments] = useState<Array<Attachment>>([]);
+
+  console.log(messages, "CHECK AGAIN");
+  // console.log(id, input, isLoading, attachments, messages, "CHECK");
 
   return (
     <>
@@ -91,3 +98,12 @@ export function Chat({
     </>
   );
 }
+
+export const Chat = memo(PureChat, (prevProps, nextProps) => {
+  if (prevProps.id !== nextProps.id) return false;
+  if (prevProps.initialMessages !== nextProps.initialMessages) return false;
+  if (prevProps.isReadonly !== nextProps.isReadonly) return false;
+  if (prevProps.selectedChatModel !== nextProps.selectedChatModel) return false;
+
+  return true;
+});
