@@ -70,8 +70,8 @@ export async function POST(request: Request) {
     const cleanData = data.filter((row) => {
       if (
         !(
-          row["Co./Last Name"].includes("IDEAL TECH SERVICES SDN BHD") ||
-          row["Quantity"] === "-1"
+          row["Co./Last Name"].includes("IDEAL TECH SERVICES") ||
+          Number(row["Quantity"]) < 0
         )
       )
         return row;
@@ -129,7 +129,7 @@ export async function POST(request: Request) {
             row["- Line 2"]?.trim(),
             row["- Line 3"]?.trim(),
             row["- Line 4"]?.trim(),
-            row["Destination Country"].trim(),
+            row["Destination Country"].trim() || "Undefined",
           ]
             .filter(Boolean)
             .join(", ");
@@ -246,10 +246,13 @@ export async function POST(request: Request) {
                 await prisma.$connect();
                 await wait(1000);
               } else {
+                console.error(`Error: ${error.message}`);
                 const errorMessage =
                   JSON.stringify({
                     phase: "error",
-                    message: error.message || "Unknown error during insertion",
+                    message:
+                      `${error.message}: ${JSON.stringify(chunk)}` ||
+                      "Unknown error during insertion",
                   }) + "\n";
                 controller.enqueue(new TextEncoder().encode(errorMessage));
                 controller.close();

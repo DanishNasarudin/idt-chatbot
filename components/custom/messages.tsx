@@ -99,7 +99,7 @@ function PureMessages({
       ) : (
         <Placeholder
           icon={BotMessageSquareIcon}
-          title={`Hi! I am ${"Agent"}. How can I help you today?`}
+          title={`Hi! I am ${"IdealAgent"}. How can I help you today?`}
           subtitle=""
         />
       )}

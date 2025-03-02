@@ -62,7 +62,8 @@ function PureMessage({ isLoading, message }: MessageProps) {
     [hasTool, message, isLoading]
   );
 
-  const showTimer =
+  const showTimer = hasReasoning || hasTool;
+  const timerLoading =
     (hasReasoning && message.content === "") ||
     (hasTool && message.content === "");
 
@@ -147,7 +148,7 @@ function PureMessage({ isLoading, message }: MessageProps) {
             })}
           </div>
         )}
-        {showTimer && <TimerDisplay isLoading={showTimer} />}
+        {showTimer && <TimerDisplay isLoading={timerLoading} />}
       </span>
       <div className="w-[40px] flex-none">
         {/* {message.role === "user" && (

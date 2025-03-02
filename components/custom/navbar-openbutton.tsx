@@ -2,6 +2,7 @@
 import { useGeneralStore } from "@/lib/zustand";
 import { SquarePenIcon } from "lucide-react";
 import { motion } from "motion/react";
+import Link from "next/link";
 import { Button } from "../ui/button";
 import TooltipWrapper from "../utils/tooltip-wrapper";
 import PanelButton from "./sidebar-openbutton";
@@ -20,9 +21,11 @@ export default function NavbarOpenButton() {
     >
       <PanelButton tooltip="Open sidebar" />
       <TooltipWrapper content="New chat">
-        <Button size={"icon"} variant={"ghost"}>
-          <SquarePenIcon />
-        </Button>
+        <Link href={"/"}>
+          <Button size={"icon"} variant={"ghost"}>
+            <SquarePenIcon />
+          </Button>
+        </Link>
       </TooltipWrapper>
     </motion.div>
   );
