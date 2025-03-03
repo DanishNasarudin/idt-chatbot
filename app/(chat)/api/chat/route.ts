@@ -180,18 +180,76 @@ Ensure invoice numbers, customer names, and all details exactly match the provid
         maxSteps: 5,
         experimental_activeTools: experimentalActiveTools,
         tools: toolsMapping,
+        experimental_repairToolCall: async ({
+          toolCall,
+          tools,
+          error,
+          messages,
+          system,
+        }) => {
+          const filteredTools: ToolsMapping<any> = Object.keys(tools)
+            .filter((key) => key !== toolCall.toolName)
+            .reduce((acc, key) => {
+              acc[key] = tools[key];
+              return acc;
+            }, {} as ToolsMapping<any>);
+
+          const result = await streamText({
+            model: myProvider.languageModel(selectedChatModel),
+            system,
+            messages: [
+              ...messages,
+              {
+                role: "assistant",
+                content: [
+                  {
+                    type: "tool-call",
+                    toolCallId: toolCall.toolCallId,
+                    toolName: toolCall.toolName,
+                    args: toolCall.args,
+                  },
+                ],
+              },
+              {
+                role: "tool" as const,
+                content: [
+                  {
+                    type: "tool-result",
+                    toolCallId: toolCall.toolCallId,
+                    toolName: toolCall.toolName,
+                    result: error.message,
+                  },
+                ],
+              },
+            ],
+            tools: filteredTools, // filter out initial failed tool call
+          });
+
+          const newToolCall = (await result.toolCalls).find(
+            (newToolCall) => newToolCall.toolName === toolCall.toolName
+          );
+
+          return newToolCall != null
+            ? {
+                toolCallType: "function" as const,
+                toolCallId: toolCall.toolCallId,
+                toolName: toolCall.toolName,
+                args: JSON.stringify(newToolCall.args),
+              }
+            : null;
+        },
         experimental_transform: smoothStream({ chunking: "word" }),
         experimental_generateMessageId: generateUUID,
         onFinish: async ({ response, reasoning }) => {
           if (session.userId) {
             try {
-              // console.log(
-              //   response,
-              //   response.messages[0],
-              //   response.messages[1],
-              //   response.messages[2],
-              //   "CHECK ALLL"
-              // );
+              console.log(
+                response,
+                response.messages[0],
+                response.messages[1],
+                response.messages[2],
+                "CHECK ALLL"
+              );
               const sanitizedResponseMessages = sanitizeResponseMessages({
                 messages: response.messages,
                 reasoning,

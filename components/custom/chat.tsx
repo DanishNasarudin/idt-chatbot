@@ -49,6 +49,7 @@ function PureChat({
     onError: (error) => {
       setStartTime(null);
       toast.error(`An error occured, please try again! ${error}`);
+      console.log(`An error occured, please try again! ${error}`);
     },
   });
 

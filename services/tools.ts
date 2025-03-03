@@ -3,6 +3,8 @@ import { tool } from "ai";
 import { z } from "zod";
 import { retrieveRelevantSales } from "./sales";
 
+const nullToUndefined = (arg: unknown) => (arg === "null" ? null : arg);
+
 /**
  * Tool to perform analytics on sales data.
  * Performs analytics with optional filters for date range and payment method.
@@ -13,19 +15,13 @@ export const getSalesAnalytics = tool({
     "Perform sales analytics with optional filters for date range and payment method. If a payment method is provided, it is validated against available payment methods in the database.",
   parameters: z.object({
     startDate: z
-      .string()
-      .optional()
-      .nullable()
+      .preprocess(nullToUndefined, z.string().optional().nullable())
       .describe("Start date in ISO format (e.g., 2025-01-01)"),
     endDate: z
-      .string()
-      .optional()
-      .nullable()
+      .preprocess(nullToUndefined, z.string().optional().nullable())
       .describe("End date in ISO format (e.g., 2025-01-31)"),
     paymentMethod: z
-      .string()
-      .optional()
-      .nullable()
+      .preprocess(nullToUndefined, z.string().optional().nullable())
       .describe(
         "Payment method to filter by (must match one of the available methods)"
       ),
@@ -88,25 +84,17 @@ export const getSalesFiltered = tool({
     "Retrieve sales records based on filters such as date range, payment method, invoice, or customer name.",
   parameters: z.object({
     startDate: z
-      .string()
-      .optional()
-      .nullable()
+      .preprocess(nullToUndefined, z.string().optional().nullable())
       .describe("Start date in ISO format (e.g., 2025-01-01)"),
     endDate: z
-      .string()
-      .optional()
-      .nullable()
+      .preprocess(nullToUndefined, z.string().optional().nullable())
       .describe("End date in ISO format (e.g., 2025-01-31)"),
     paymentMethod: z
-      .string()
-      .optional()
-      .nullable()
+      .preprocess(nullToUndefined, z.string().optional().nullable())
       .describe("Payment method to filter by"),
     invoice: z.string().optional().describe("Invoice substring to filter by"),
     customer: z
-      .string()
-      .optional()
-      .nullable()
+      .preprocess(nullToUndefined, z.string().optional().nullable())
       .describe("Customer name substring to filter by"),
   }),
   execute: async ({ startDate, endDate, paymentMethod, invoice, customer }) => {
@@ -159,14 +147,10 @@ export const getSalesSummary = tool({
     "Get a summary of sales aggregated by payment method within an optional date range.",
   parameters: z.object({
     startDate: z
-      .string()
-      .optional()
-      .nullable()
+      .preprocess(nullToUndefined, z.string().optional().nullable())
       .describe("Start date in ISO format (e.g., 2025-01-01)"),
     endDate: z
-      .string()
-      .optional()
-      .nullable()
+      .preprocess(nullToUndefined, z.string().optional().nullable())
       .describe("End date in ISO format (e.g., 2025-01-31)"),
   }),
   execute: async ({ startDate, endDate }) => {
@@ -235,14 +219,10 @@ export const getSalesTrend = tool({
     "Analyze sales trends over time grouped by day, week, or month. Returns aggregated total sales and count per period.",
   parameters: z.object({
     startDate: z
-      .string()
-      .optional()
-      .nullable()
+      .preprocess(nullToUndefined, z.string().optional().nullable())
       .describe("Start date in ISO format (e.g., 2025-01-01)"),
     endDate: z
-      .string()
-      .optional()
-      .nullable()
+      .preprocess(nullToUndefined, z.string().optional().nullable())
       .describe("End date in ISO format (e.g., 2025-01-31)"),
     groupBy: z
       .enum(["DAY", "WEEK", "MONTH"])
@@ -309,20 +289,16 @@ export const getTopCustomers = tool({
     "Retrieve top customers based on total sales amount within an optional date range.",
   parameters: z.object({
     startDate: z
-      .string()
-      .optional()
-      .nullable()
+      .preprocess(nullToUndefined, z.string().optional().nullable())
       .describe("Start date in ISO format (e.g., 2025-01-01)"),
     endDate: z
-      .string()
-      .optional()
-      .nullable()
+      .preprocess(nullToUndefined, z.string().optional().nullable())
       .describe("End date in ISO format (e.g., 2025-01-31)"),
     limit: z
-      .preprocess(
-        (arg) => (typeof arg === "string" ? parseFloat(arg) : arg),
-        z.number().optional().nullable().default(5)
-      )
+      .preprocess((arg) => {
+        const val = nullToUndefined(arg);
+        return typeof val === "string" ? parseFloat(val) : val;
+      }, z.number().optional().nullable().default(5))
       .describe("Maximum number of customers to return"),
   }),
   execute: async ({ startDate, endDate, limit = 5 }) => {
@@ -367,19 +343,17 @@ export const getTopCustomers = tool({
  */
 export const getItemSalesAnalysis = tool({
   description:
-    "Provide analysis per item including total quantity sold, total sales amount, and average sale price.",
+    "Provide analysis PER item (Not null) including total quantity sold, total sales amount, and average sale price.",
   parameters: z.object({
     startDate: z
-      .string()
-      .optional()
-      .nullable()
+      .preprocess(nullToUndefined, z.string().optional().nullable())
       .describe("Start date in ISO format (e.g., 2025-01-01)"),
     endDate: z
-      .string()
-      .optional()
-      .nullable()
+      .preprocess(nullToUndefined, z.string().optional().nullable())
       .describe("End date in ISO format (e.g., 2025-01-31)"),
-    item: z.string().optional().describe("Item substring to filter by"),
+    item: z
+      .preprocess(nullToUndefined, z.string().optional().nullable())
+      .describe("Item substring to filter by"),
   }),
   execute: async ({ startDate, endDate, item }) => {
     const filter: Record<string, any> = {};
@@ -461,14 +435,10 @@ export const getSalesByRegion = tool({
     "Analyze sales trends by region or state. Uses the full customer address to aggregate sales data. The full address is provided for downstream interpretation of region details.",
   parameters: z.object({
     startDate: z
-      .string()
-      .optional()
-      .nullable()
+      .preprocess(nullToUndefined, z.string().optional().nullable())
       .describe("Start date in ISO format (e.g., 2025-01-01)"),
     endDate: z
-      .string()
-      .optional()
-      .nullable()
+      .preprocess(nullToUndefined, z.string().optional().nullable())
       .describe("End date in ISO format (e.g., 2025-01-31)"),
   }),
   execute: async ({ startDate, endDate }) => {
@@ -522,26 +492,26 @@ export const getHotItemsByRegion = tool({
       .string()
       .describe("Region or state to filter sales by (e.g., Johor)"),
     startDate: z
-      .string()
-      .optional()
-      .nullable()
+      .preprocess(nullToUndefined, z.string().optional().nullable())
       .describe("Start date in ISO format (e.g., 2025-01-01)"),
     endDate: z
-      .string()
-      .optional()
-      .nullable()
+      .preprocess(nullToUndefined, z.string().optional().nullable())
       .describe("End date in ISO format (e.g., 2025-01-31)"),
     sortBy: z
-      .enum(["QUANTITY", "TOTAL_SALES"])
-      .optional()
-      .nullable()
-      .default("QUANTITY")
+      .preprocess(
+        nullToUndefined,
+        z
+          .enum(["QUANTITY", "TOTAL_SALES"])
+          .optional()
+          .nullable()
+          .default("QUANTITY")
+      )
       .describe("Sort items by quantity sold or total sales amount"),
     limit: z
-      .preprocess(
-        (arg) => (typeof arg === "string" ? parseFloat(arg) : arg),
-        z.number().optional().nullable().default(5)
-      )
+      .preprocess((arg) => {
+        const val = nullToUndefined(arg);
+        return typeof val === "string" ? parseFloat(val) : val;
+      }, z.number().optional().nullable().default(5))
       .describe("Maximum number of items to return"),
   }),
   execute: async ({ region, startDate, endDate, sortBy, limit }) => {
@@ -605,19 +575,13 @@ export const getInvoiceTrendsByRegion = tool({
     "Aggregate invoice trends by region or state. Filters sales by checking if the full address includes the region substring (if provided), then aggregates unique invoice count, total invoice amount, and average invoice value.",
   parameters: z.object({
     region: z
-      .string()
-      .optional()
-      .nullable()
+      .preprocess(nullToUndefined, z.string().optional().nullable())
       .describe("Optional region to filter by (e.g., Johor)"),
     startDate: z
-      .string()
-      .optional()
-      .nullable()
+      .preprocess(nullToUndefined, z.string().optional().nullable())
       .describe("Start date in ISO format (e.g., 2025-01-01)"),
     endDate: z
-      .string()
-      .optional()
-      .nullable()
+      .preprocess(nullToUndefined, z.string().optional().nullable())
       .describe("End date in ISO format (e.g., 2025-01-31)"),
   }),
   execute: async ({ region, startDate, endDate }) => {
@@ -783,26 +747,26 @@ export const getTopAggregates = tool({
       .enum(["ITEM", "STATE", "CUSTOMER", "INVOICE", "PAYMENT_METHOD"])
       .describe("Field to group by"),
     sortBy: z
-      .enum(["TOTAL_SALES", "COUNT", "QUANTITY"])
-      .optional()
-      .nullable()
-      .default("TOTAL_SALES")
+      .preprocess(
+        nullToUndefined,
+        z
+          .enum(["TOTAL_SALES", "COUNT", "QUANTITY"])
+          .optional()
+          .nullable()
+          .default("TOTAL_SALES")
+      )
       .describe("Criteria to sort the groups"),
     startDate: z
-      .string()
-      .optional()
-      .nullable()
+      .preprocess(nullToUndefined, z.string().optional().nullable())
       .describe("Start date in ISO format (e.g., 2025-01-01)"),
     endDate: z
-      .string()
-      .optional()
-      .nullable()
+      .preprocess(nullToUndefined, z.string().optional().nullable())
       .describe("End date in ISO format (e.g., 2025-01-31)"),
     limit: z
-      .preprocess(
-        (arg) => (typeof arg === "string" ? parseFloat(arg) : arg),
-        z.number().optional().nullable().default(5)
-      )
+      .preprocess((arg) => {
+        const val = nullToUndefined(arg);
+        return typeof val === "string" ? parseFloat(val) : val;
+      }, z.number().optional().nullable().default(5))
       .describe("Maximum number of groups to return"),
   }),
   execute: async ({ groupBy, sortBy, startDate, endDate, limit = 5 }) => {
