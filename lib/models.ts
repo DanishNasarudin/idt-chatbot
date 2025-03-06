@@ -1,3 +1,4 @@
+import { toolsMapping } from "@/services/tools";
 import {
   customProvider,
   extractReasoningMiddleware,
@@ -27,9 +28,21 @@ export const myProvider = customProvider({
       middleware: extractReasoningMiddleware({ tagName: "think" }),
     }),
     "llama3.3:latest": ollama("llama3.3:latest", { simulateStreaming: true }),
+    mistral: ollama("mistral", { simulateStreaming: true }),
     "qwen2.5:7b": ollama("qwen2.5:7b", { simulateStreaming: true }),
+    "qwen2.5:14b": ollama("qwen2.5:14b", { simulateStreaming: true }),
+    "qwen2.5:32b": ollama("qwen2.5:32b", { simulateStreaming: true }),
     "qwen2.5:72b": ollama("qwen2.5:72b", { simulateStreaming: true }),
     "small-model": ollama("llama3.2", { simulateStreaming: true }),
+    "llama3.2-object": ollama("llama3.2", {
+      simulateStreaming: true,
+      structuredOutputs: true,
+    }),
+    openhermes: ollama("openhermes", { simulateStreaming: true }),
+    "openhermes-object": ollama("openhermes", {
+      structuredOutputs: true,
+      simulateStreaming: true,
+    }),
   },
   textEmbeddingModels: {
     "embedding-model": ollama.textEmbeddingModel(
@@ -48,7 +61,7 @@ export const chatModels: Array<ChatModel> = [
   {
     id: "small-model",
     name: "Small model (llama3.2)",
-    description: "Small model for fast reasoning",
+    description: "Small model for fast task",
   },
   // {
   //   id: "deepseek-r1:7b",
@@ -60,20 +73,35 @@ export const chatModels: Array<ChatModel> = [
   //   name: "Large model (deepseek-r1:70b)",
   //   description: "Large model for complex reasoning",
   // },
-  // {
-  //   id: "qwen2.5:7b",
-  //   name: "Small model (qwen2.5:7b)",
-  //   description: "Small model for fast reasoning",
-  // },
+  {
+    id: "qwen2.5:14b",
+    name: "Small model (qwen2.5:14b)",
+    description: "Small model for fast task",
+  },
+  {
+    id: "qwen2.5:32b",
+    name: "Medium model (qwen2.5:32b)",
+    description: "Medium model for fast task",
+  },
   // {
   //   id: "qwen2.5:72b",
   //   name: "Large model (qwen2.5:72b)",
   //   description: "Large model for complex reasoning",
   // },
+  // {
+  //   id: "openhermes",
+  //   name: "Small model (openhermes)",
+  //   description: "Small model for fast task",
+  // },
+  // {
+  //   id: "mistral",
+  //   name: "Small model (mistral)",
+  //   description: "Small model for fast task",
+  // },
   {
     id: "llama3.3:latest",
     name: "Large model (llama3.3:latest)",
-    description: "Large model for complex reasoning",
+    description: "Large model for complex task",
   },
 ];
 
@@ -111,11 +139,22 @@ You are a friendly assistant named IdealAgent! Keep your responses concise and h
 - If there is no available tools to use, attempt to use getInformation, if the result does not align with user request, then indicate to user what type of tool is required.
 - DO NOT create false data to answer the user. If the data did not exist, state it does not exist.
 - When region or state queries are involved, attempt to analyse the address variable retrieved from the data, and extract out region or state from address.
+- DO NOT use tools that does not exists.
+- IGNORE the tool results if it does not answer the user's query.
+- When trying to retrieve data, ALWAYS get the entire metadata first for context.
+- Ask the user if they want to include or exclude Undefined or Unknowns values from the tool results.
+- If the result is less than expected, retry the tool with different string or number iterations
+
+
+### **Current Available Tools:**
+${Object.keys(toolsMapping).join("\n")}
 
 ### **Additional Instructions:**
 - Always respond ONLY based on provided sales data.
 - Format responses clearly and concisely.
 - If no matching data is found, state that politely (e.g., *"No matching sales record was found."*).
-- Always check every chat message for context.
+- ALWAYS check every messages for context.
 - Try and use Markdown Table when needed to display data in a cleaner format.
 `;
+
+// - use testSearchAggregates first if the message request large period of data before performing getTopAggregates.

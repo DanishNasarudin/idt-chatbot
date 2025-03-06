@@ -1,4 +1,4 @@
-import { Chat } from "@/components/custom/chat";
+import Chat from "@/components/custom/chat";
 import { DEFAULT_CHAT_MODEL } from "@/lib/models";
 import { convertToUIMessages } from "@/lib/utils";
 import { getChatById } from "@/services/chat";
@@ -17,17 +17,20 @@ export default async function ChatPage({
   const chat = await getChatById({ id: chatId });
 
   if (!chat) {
+    console.log("not authorised");
     redirect("/");
   }
 
   const session = await auth();
 
-  if (chat.visibility === "PRIVATE") {
-    if (!session) {
-      return redirect("/");
-    }
+  if (!session || !session.userId) {
+    console.log("chat.visibility === PRIVATE not authorised");
+    return redirect("/");
+  }
 
-    if (session.userId !== chat.userId) {
+  if (chat.visibility === "PRIVATE") {
+    if (session.userId.trim() !== chat.userId.trim()) {
+      console.log("session.userId !== chat.userId not authorised");
       return redirect("/");
     }
   }
@@ -44,7 +47,7 @@ export default async function ChatPage({
       <Chat
         id={chat.id}
         initialMessages={convertToUIMessages(messagesFromDb)}
-        isReadonly={session.userId !== chat.userId}
+        isReadonly={session.userId.trim() !== chat.userId.trim()}
         selectedChatModel={DEFAULT_CHAT_MODEL}
       />
     );
@@ -54,7 +57,7 @@ export default async function ChatPage({
     <Chat
       id={chat.id}
       initialMessages={convertToUIMessages(messagesFromDb)}
-      isReadonly={session.userId !== chat.userId}
+      isReadonly={session.userId.trim() !== chat.userId.trim()}
       selectedChatModel={chatModelFromCookie.value}
     />
   );

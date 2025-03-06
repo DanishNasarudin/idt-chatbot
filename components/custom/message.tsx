@@ -112,12 +112,14 @@ function PureMessage({ isLoading, message }: MessageProps) {
                 `${toolName}: Getting data..`;
 
               if (state === "result" && message.content === "") {
+                const { result } = toolInvocation;
                 return (
                   <div key={toolCallId}>
                     <div className="flex flex-row gap-2 items-center">
                       <div className="font-medium">
                         Processing retrieved {toolName} data
                       </div>
+                      <div>{JSON.stringify(result)}</div>
                       <div className="animate-spin">
                         <LoaderIcon />
                       </div>
@@ -125,17 +127,20 @@ function PureMessage({ isLoading, message }: MessageProps) {
                   </div>
                 );
               }
-              if (state === "call")
+              if (state === "call") {
                 return (
                   <div key={toolCallId}>
                     <div className="flex flex-row gap-2 items-center">
                       <div className="font-medium">{toolDescription}</div>
+                      <div>{JSON.stringify(args)}</div>
                       <div className="animate-spin">
                         <LoaderIcon />
                       </div>
                     </div>
                   </div>
                 );
+              }
+
               if (state === "result")
                 return (
                   <div

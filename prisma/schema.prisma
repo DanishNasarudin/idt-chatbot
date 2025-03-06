@@ -1,101 +1,108 @@
 generator client {
-  provider = "prisma-client-js"
+    provider        = "prisma-client-js"
+    previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider = "mysql"
-  url      = env("DATABASE_URL")
+    provider   = "postgres"
+    url        = env("DATABASE_URL")
+    extensions = [pgvector(map: "vector")]
 }
 
 model Chat {
-  id         String     @id @default(uuid()) @db.Char(36)
-  createdAt  DateTime   @default(now())
-  title      String
-  userId     String     @db.Char(36)
-  visibility Visibility @default(PRIVATE)
-  updatedAt  DateTime   @updatedAt
-  messages   Message[]
-  votes      Vote[]
+    id         String     @id @default(uuid()) @db.Char(36)
+    createdAt  DateTime   @default(now())
+    title      String
+    userId     String     @db.Char(36)
+    visibility Visibility @default(PRIVATE)
+    updatedAt  DateTime   @updatedAt
+    messages   Message[]
+    votes      Vote[]
 }
 
 model Message {
-  id        String   @id @default(uuid()) @db.Char(36)
-  chatId    String   @db.Char(36)
-  role      String
-  content   Json
-  parts     Json?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  chat      Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
-  votes     Vote[]
+    id        String   @id @default(uuid()) @db.Char(36)
+    chatId    String   @db.Char(36)
+    role      String
+    content   Json
+    parts     Json?
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+    chat      Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
+    votes     Vote[]
 
-  @@index([chatId], map: "Message_chatId_fkey")
+    @@index([chatId], map: "Message_chatId_index")
 }
 
 model Vote {
-  chatId    String  @db.Char(36)
-  messageId String  @db.Char(36)
-  isUpvoted Boolean
-  chat      Chat    @relation(fields: [chatId], references: [id], onDelete: Cascade)
-  message   Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+    chatId    String  @db.Char(36)
+    messageId String  @db.Char(36)
+    isUpvoted Boolean
+    chat      Chat    @relation(fields: [chatId], references: [id], onDelete: Cascade)
+    message   Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
 
-  @@id([chatId, messageId])
-  @@index([messageId], map: "Vote_messageId_fkey")
+    @@id([chatId, messageId])
+    @@index([messageId], map: "Vote_messageId_index")
 }
 
 model Document {
-  id          String       @default(uuid()) @db.Char(36)
-  createdAt   DateTime
-  title       String
-  content     String?
-  kind        DocumentKind @default(TEXT)
-  userId      String       @db.Char(36)
-  suggestions Suggestion[]
+    id          String       @default(uuid()) @db.Char(36)
+    createdAt   DateTime
+    title       String
+    content     String?
+    kind        DocumentKind @default(TEXT)
+    userId      String       @db.Char(36)
+    suggestions Suggestion[]
 
-  @@id([id, createdAt])
+    @@id([id, createdAt])
 }
 
 model Suggestion {
-  id                String   @id @default(uuid()) @db.Char(36)
-  documentId        String   @db.Char(36)
-  documentCreatedAt DateTime
-  originalText      String
-  suggestedText     String
-  description       String?
-  isResolved        Boolean  @default(false)
-  userId            String   @db.Char(36)
-  createdAt         DateTime
-  document          Document @relation(fields: [documentId, documentCreatedAt], references: [id, createdAt], onDelete: Cascade)
+    id                String   @id @default(uuid()) @db.Char(36)
+    documentId        String   @db.Char(36)
+    documentCreatedAt DateTime
+    originalText      String
+    suggestedText     String
+    description       String?
+    isResolved        Boolean  @default(false)
+    userId            String   @db.Char(36)
+    createdAt         DateTime
+    document          Document @relation(fields: [documentId, documentCreatedAt], references: [id, createdAt], onDelete: Cascade)
 
-  @@index([documentId, documentCreatedAt], map: "Suggestion_documentId_documentCreatedAt_fkey")
+    @@index([documentId, documentCreatedAt], map: "Suggestion_documentId_documentCreatedAt_index")
 }
 
 model Sales {
-  id            String   @id @default(uuid()) @db.Char(36)
-  customer      String
-  invoice       String
-  purchaseDate  DateTime
-  address       String
-  item          String
-  quantity      Int
-  price         Int
-  total         Int
-  comment       String
-  remarks       String
-  paymentMethod String
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  embedding     Json?
+    id            String   @id @default(uuid()) @db.Char(36)
+    customer      String
+    invoice       String
+    purchaseDate  DateTime
+    address       String
+    item          String
+    quantity      Int
+    price         Int
+    total         Int
+    comment       String
+    remarks       String
+    paymentMethod String
+    createdAt     DateTime @default(now())
+    updatedAt     DateTime @updatedAt
+    embedding     Json?
 }
 
 enum Visibility {
-  PUBLIC  @map("public")
-  PRIVATE @map("private")
+    PUBLIC  @map("public")
+    PRIVATE @map("private")
 }
 
 enum DocumentKind {
-  TEXT  @map("text")
-  CODE  @map("code")
-  IMAGE @map("image")
-  SHEET @map("sheet")
+    TEXT  @map("text")
+    CODE  @map("code")
+    IMAGE @map("image")
+    SHEET @map("sheet")
+}
+
+model Vector {
+    id        String                      @id @db.Char(36)
+    embedding Unsupported("vector(4096)")
 }

@@ -1,4 +1,4 @@
-import { Chat } from "@/components/custom/chat";
+import Chat from "@/components/custom/chat";
 import { DEFAULT_CHAT_MODEL } from "@/lib/models";
 import { generateUUID } from "@/lib/utils";
 import { auth } from "@clerk/nextjs/server";
@@ -11,6 +11,7 @@ export default async function Home() {
   const session = await auth();
 
   if (!session) {
+    console.log("not authorised");
     return redirect("/");
   }
 

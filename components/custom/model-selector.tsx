@@ -7,6 +7,8 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
@@ -75,6 +77,11 @@ export function ModelSelector({
             </DropdownMenuItem>
           );
         })}
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel className="text-xs text-red-500">
+          <p>Note: If change from large to small,</p>
+          <p>will take a while to speed up</p>
+        </DropdownMenuLabel>
       </DropdownMenuContent>
     </DropdownMenu>
   );

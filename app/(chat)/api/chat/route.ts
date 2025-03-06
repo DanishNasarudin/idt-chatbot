@@ -1,9 +1,23 @@
 import {
-  UIMessage,
   createDataStreamResponse,
+  generateText,
+  InvalidToolArgumentsError,
+  NoSuchToolError,
   smoothStream,
   streamText,
+  ToolCallRepairError,
+  ToolExecutionError,
+  UIMessage,
 } from "ai";
+import {
+  ZodDiscriminatedUnion,
+  ZodEnum,
+  ZodNativeEnum,
+  ZodNumber,
+  ZodObject,
+  ZodString,
+  ZodType,
+} from "zod";
 
 import { myProvider, regularPrompt } from "@/lib/models";
 import {
@@ -12,32 +26,12 @@ import {
   sanitizeResponseMessages,
 } from "@/lib/utils";
 
-import prisma from "@/lib/prisma";
 import { deleteChatById, getChatById, saveChat } from "@/services/chat";
-import {
-  classifyUserQuery,
-  generateTitleFromUserMessage,
-  saveMessages,
-} from "@/services/message";
-import { retrieveRelevantSales } from "@/services/sales";
-import {
-  getHotItemsByRegion,
-  getInformation,
-  getInvoiceDetails,
-  getInvoiceTrendsByRegion,
-  getItemSalesAnalysis,
-  getSalesAnalytics,
-  getSalesByRegion,
-  getSalesFiltered,
-  getSalesSummary,
-  getSalesTrend,
-  getTopAggregates,
-  getTopCustomers,
-  listPaymentMethods,
-  listRegions,
-} from "@/services/tools";
+import { generateTitleFromUserMessage, saveMessages } from "@/services/message";
+// import { retrieveRelevantSales } from "@/services/sales";
+import { toolsMapping } from "@/services/tools";
 import { auth } from "@clerk/nextjs/server";
-import { Sales } from "@prisma/client";
+import { Sales } from "@prisma-db-1/client";
 
 export const maxDuration = 60;
 
@@ -68,7 +62,7 @@ export async function POST(request: Request) {
 
   if (!chat) {
     const title = await generateTitleFromUserMessage({ message: userMessage });
-    await saveChat({ id, userId: session.userId, title });
+    await saveChat({ id, userId: session.userId.trim(), title });
   }
 
   // console.log(userMessage, messages);
@@ -87,26 +81,21 @@ export async function POST(request: Request) {
     ],
   });
 
-  const queryType = await classifyUserQuery(userMessage.content);
+  // const queryType = await classifyUserQuery(userMessage.content);
 
-  // let relevantSalesData = "";
+  let relevantSalesData = "";
+  if (
+    selectedChatModel === "deepseek-r1:70b" ||
+    selectedChatModel === "deepseek-r1:7b"
+  ) {
+    // relevantSalesData = await retrieveRelevantSales(userMessage.content);
+    relevantSalesData = "";
+  }
 
-  // if (queryType === "TOTAL_SALES") {
-  //   const totalSales = await prisma.sales.aggregate({
-  //     _sum: { total: true },
-  //   });
-  //   relevantSalesData = `The total sum of all sales is RM ${
-  //     totalSales._sum.total?.toFixed(2) || 0
-  //   }.`;
-  // } else if (queryType === "INVOICE_SEARCH" || queryType === "OTHER") {
-  //   relevantSalesData = await retrieveRelevantSales(userMessage.content);
-  // }
-
-  const salesData = await prisma.sales.findMany({
-    orderBy: { invoice: "desc" },
-  });
-  const formattedSales = formatSalesData(salesData);
-  const relevantSalesData = await retrieveRelevantSales(userMessage.content);
+  // const salesData = await prisma.sales.findMany({
+  //   orderBy: { invoice: "desc" },
+  // });
+  // const formattedSales = formatSalesData(salesData);
 
   const updatedPrompt = `
   ${userMessage.content}
@@ -141,11 +130,28 @@ Ensure invoice numbers, customer names, and all details exactly match the provid
 
   const systemPrompt = (chatModel?: string) => {
     if (chatModel === "deepseek-r1:70b" || chatModel === "deepseek-r1:7b") {
-      return `${regularPrompt}
+      return `
+    You are a friendly assistant named IdealAgent! Keep your responses concise and helpful.
 
-    ### SALES DATA START
+    ### SALES DATA CONTEXT:
+    - You have access to a structured dataset containing sales transactions.
+    - The dataset includes details such as:
+      - **Invoice Number** - Unique identifier for each transaction.
+      - **Customer Name** - Name of the buyer.
+      - **Purchase Date** - The date the transaction occurred.
+      - **Address** - Customer's location details.
+      - **Item Description** - The product or service purchased.
+      - **Quantity** - Number of units bought.
+      - **Price per Unit** - The cost of a single unit.
+      - **Total Amount** - Total cost of the transaction.
+      - **Payment Method** - The method used for payment (e.g., Credit Card, Cash).
+      - **Additional Notes** - Any comments or remarks related to the sale.
+    - The dataset is a list of purchased items with their respective details such as invoice. So expect the invoice to have duplicates.
+    - The **Total Amount** can be 0 at some point, this indicate that the item was sold for free.
+    - Each row is unique by combination of Invoice and Item Description.
+
+    ### SALES DATA CONTENT:
     ${relevantSalesData || "No sales data available"}
-    ### SALES DATA END
 
     INSTRUCTIONS: For any sales query, ONLY use the above data. Do NOT hallucinate or generate mock data.
     Ensure invoice numbers, customer names, and all details exactly match the provided sales data.
@@ -186,66 +192,67 @@ Ensure invoice numbers, customer names, and all details exactly match the provid
           error,
           messages,
           system,
+          parameterSchema,
         }) => {
-          const filteredTools: ToolsMapping<any> = Object.keys(tools)
-            .filter((key) => key !== toolCall.toolName)
-            .reduce((acc, key) => {
-              acc[key] = tools[key];
-              return acc;
-            }, {} as ToolsMapping<any>);
+          if (NoSuchToolError.isInstance(error)) {
+            return null;
+          }
 
-          const result = await streamText({
-            model: myProvider.languageModel(selectedChatModel),
-            system,
-            messages: [
-              ...messages,
-              {
-                role: "assistant",
-                content: [
-                  {
-                    type: "tool-call",
-                    toolCallId: toolCall.toolCallId,
-                    toolName: toolCall.toolName,
-                    args: toolCall.args,
-                  },
-                ],
-              },
-              {
-                role: "tool" as const,
-                content: [
-                  {
-                    type: "tool-result",
-                    toolCallId: toolCall.toolCallId,
-                    toolName: toolCall.toolName,
-                    result: error.message,
-                  },
-                ],
-              },
-            ],
-            tools: filteredTools, // filter out initial failed tool call
+          const tool = tools[toolCall.toolName as keyof typeof tools];
+          const expectedArgs = getExampleArgs(tool.parameters);
+
+          console.log(tool.parameters, "PARAMETERS");
+          console.log(toolCall.args, "ORI ARG");
+          console.log(expectedArgs, "EXPECTEDD");
+          console.log(JSON.stringify(parameterSchema(toolCall)), "SCHEMA ARG2");
+
+          const { text: repairedArgs } = await generateText({
+            model: myProvider.languageModel("small-model"),
+            // schema: tool.parameters,
+            system: `\n
+            - you will fix the arguments format
+            - you will respond only with the corrected argument
+            - do not include explanation
+            - do not include json word`,
+            prompt: [
+              `The model tried to call the tool "${toolCall.toolName}"` +
+                ` with the following initial arguments:`,
+              JSON.stringify(toolCall.args),
+              `The tool accepts the following schema example:`,
+              JSON.stringify(expectedArgs),
+              `Please fix the arguments. Include the initial argument "value" value, do not include the "type" or "value" keys.`,
+            ].join("\n"),
           });
 
-          const newToolCall = (await result.toolCalls).find(
-            (newToolCall) => newToolCall.toolName === toolCall.toolName
+          const flattenToolArgs = (obj: any): any => {
+            if (typeof obj !== "object" || obj === null) return obj;
+            if ("value" in obj && Object.keys(obj).length === 1)
+              return obj.value;
+            if (Array.isArray(obj)) return obj.map(flattenToolArgs);
+            const newObj: Record<string, any> = {};
+            for (const key in obj) {
+              newObj[key] = flattenToolArgs(obj[key]);
+            }
+            return newObj;
+          };
+
+          const cleanedRepairedArgs = flattenToolArgs(repairedArgs);
+          console.log(cleanedRepairedArgs, "CLEANED REPAIRED RESULT");
+          console.log(
+            JSON.stringify(cleanedRepairedArgs),
+            "CLEANED REPAIRED RESULT"
           );
 
-          return newToolCall != null
-            ? {
-                toolCallType: "function" as const,
-                toolCallId: toolCall.toolCallId,
-                toolName: toolCall.toolName,
-                args: JSON.stringify(newToolCall.args),
-              }
-            : null;
+          return { ...toolCall, args: cleanedRepairedArgs };
         },
         experimental_transform: smoothStream({ chunking: "word" }),
         experimental_generateMessageId: generateUUID,
         onFinish: async ({ response, reasoning }) => {
-          if (session.userId) {
+          if (session.userId.trim()) {
             try {
               console.log(
                 response,
-                response.messages[0],
+                response.messages[0].content,
                 response.messages[1],
                 response.messages[2],
                 "CHECK ALLL"
@@ -304,7 +311,20 @@ Ensure invoice numbers, customer names, and all details exactly match the provid
     },
     onError: (error) => {
       console.error(error);
-      return "Oops, an error occured!";
+      if (NoSuchToolError.isInstance(error)) {
+        // handle the no such tool error
+        return `No such tool exist!`;
+      } else if (InvalidToolArgumentsError.isInstance(error)) {
+        // handle the invalid tool arguments error
+        return `Tool Arguments Invalid!`;
+      } else if (ToolExecutionError.isInstance(error)) {
+        // handle the tool execution error
+        return `Tool Execution Failed!`;
+      } else if (ToolCallRepairError.isInstance(error)) {
+        return `Tool Repair Failed!`;
+      } else {
+        return "Oops, an error occured!";
+      }
     },
   });
 }
@@ -326,7 +346,7 @@ export async function DELETE(request: Request) {
   try {
     const chat = await getChatById({ id });
 
-    if (chat?.userId !== session.userId) {
+    if (chat?.userId.trim() !== session.userId!.trim()) {
       return new Response("Unauthorized", { status: 401 });
     }
 
@@ -355,36 +375,40 @@ function isReasoningPart(
   return part.type === "reasoning" && typeof part.reasoning === "string";
 }
 
-type ToolsMapping<T = any> = Record<string, T>;
-
-function addUnderscoreAliases<T extends Record<string, any>>(
-  tools: T
-): T & ToolsMapping<T[keyof T]> {
-  const updatedTools = { ...tools } as Record<string, T[keyof T]>;
-  for (const key in tools) {
-    const underscoreKey = key;
-    if (!(underscoreKey in updatedTools)) {
-      (updatedTools as any)[underscoreKey] = tools[key];
+function getExampleArgs<T extends ZodType<any, any, any>>(
+  schema: T
+): Record<string, any> | any {
+  if (schema instanceof ZodObject) {
+    const example: Record<string, any> = {};
+    const shape = schema.shape;
+    for (const key in shape) {
+      const fieldSchema = shape[key];
+      if (fieldSchema instanceof ZodEnum) {
+        // For ZodEnum, return all options for 'sortBy', otherwise the first option.
+        example[key] = fieldSchema._def.values;
+      } else if (fieldSchema instanceof ZodNativeEnum) {
+        example[key] = Object.values(fieldSchema.enum);
+      } else if (
+        fieldSchema instanceof ZodObject ||
+        fieldSchema instanceof ZodDiscriminatedUnion
+      ) {
+        example[key] = getExampleArgs(fieldSchema);
+      } else if (fieldSchema instanceof ZodString) {
+        example[key] = "example";
+      } else if (fieldSchema instanceof ZodNumber) {
+        example[key] = 0;
+      } else {
+        example[key] = null;
+      }
     }
+    return example;
+  } else if (schema instanceof ZodDiscriminatedUnion) {
+    const [firstOption] = schema.options;
+    return getExampleArgs(firstOption);
+  } else if (schema instanceof ZodEnum) {
+    return schema._def.values;
+  } else if (schema instanceof ZodNativeEnum) {
+    return Object.values(schema.enum);
   }
-  return updatedTools as T & ToolsMapping<T[keyof T]>;
+  throw new Error("Unsupported schema type");
 }
-
-const baseTools = {
-  getSalesAnalytics,
-  getSalesFiltered,
-  getSalesSummary,
-  getInformation,
-  getSalesTrend,
-  getTopCustomers,
-  getItemSalesAnalysis,
-  listPaymentMethods,
-  getSalesByRegion,
-  getHotItemsByRegion,
-  getInvoiceTrendsByRegion,
-  getInvoiceDetails,
-  listRegions,
-  getTopAggregates,
-};
-
-const toolsMapping = addUnderscoreAliases(baseTools);

@@ -30,6 +30,28 @@ export async function saveChat({
   }
 }
 
+export async function updateChatTitleById({
+  id,
+  title,
+}: {
+  id: string;
+  title: string;
+}) {
+  try {
+    return await prisma.chat.update({
+      where: {
+        id,
+      },
+      data: {
+        title,
+      },
+    });
+  } catch (error) {
+    console.error("Failed to update chat in database");
+    throw error;
+  }
+}
+
 export async function deleteChatById({ id }: { id: string }): Promise<Chat> {
   try {
     await prisma.vote.deleteMany({ where: { chatId: id } });

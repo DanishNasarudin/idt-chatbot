@@ -24,6 +24,11 @@ type CSVDataType = {
   "Payment Method": string;
 };
 
+type VectorData = {
+  id: string;
+  embedding: number[]; // Adjust type as needed for your data
+};
+
 const wait = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -102,6 +107,15 @@ export async function POST(request: Request) {
       existingSales.map((sale) => `${sale.invoice}-${sale.item}-${sale.total}`)
     );
 
+    const newCleanData = cleanData.filter((row) => {
+      const invoice = row["Invoice #"].trim();
+      const item = row["Description"]?.trim() || "Undefined";
+      const total = parseFloat(
+        row["Total"].replace(/^RM/, "").replace(/,/g, "").trim()
+      );
+      return !existingSalesSet.has(`${invoice}-${item}-${total}`);
+    });
+
     const chunkArray = <T>(array: T[], chunkSize: number): T[][] => {
       const results: T[][] = [];
       for (let i = 0; i < array.length; i += chunkSize) {
@@ -113,122 +127,111 @@ export async function POST(request: Request) {
     // console.log(invoices.filter((item) => item.invoice === "J0125143"));
     // console.log(invoices[0]);
 
+    const totalRows = newCleanData.length;
+    const chunkSize = 50;
+    const chunks = chunkArray(newCleanData, chunkSize);
+    let overallProgress = 0;
+
     const stream = new ReadableStream({
       async start(controller) {
-        const invoices: Prisma.SalesCreateManyInput[] = [];
-        const totalEmbeddingCount = cleanData.length;
+        for (const chunk of chunks) {
+          // Batch embed: generate embeddings concurrently for the chunk.
+          const invoiceChunk: Prisma.SalesCreateManyInput[] = await Promise.all(
+            chunk.map(async (row) => {
+              const customer = row["Addr 1 - Line 1"].includes(
+                row["Co./Last Name"]
+              )
+                ? row["Addr 1 - Line 1"].trim()
+                : `${row["Addr 1 - Line 1"].trim()}, ${row[
+                    "Co./Last Name"
+                  ].trim()}`;
+              const address = [
+                row["- Line 2"]?.trim(),
+                row["- Line 3"]?.trim(),
+                row["- Line 4"]?.trim(),
+                row["Destination Country"].trim(),
+              ]
+                .filter(Boolean)
+                .join(", ");
+              const addressSanitise = address === "" ? "Undefined" : address;
+              const item = row["Description"]?.trim();
+              const itemSanitise =
+                item === "" ? "Undefined" : item.toUpperCase();
+              const quantity = parseInt(row["Quantity"], 10);
+              const price = parseFloat(
+                row["Price"].replace(/^RM/, "").replace(/,/g, "").trim()
+              );
+              const total = parseFloat(
+                row["Total"].replace(/^RM/, "").replace(/,/g, "").trim()
+              );
+              const text = `Invoice: ${row[
+                "Invoice #"
+              ].trim()}, Customer: ${customer}, PurchaseDate: ${parseDate(
+                row["Date"]
+              ).toISOString()}, ItemDescription: ${itemSanitise}, Quantity: ${quantity}, PricePerUnit: ${price}, Total: ${total}, Payment: ${row[
+                "Payment Method"
+              ]?.trim()}, CustomerAddress: ${addressSanitise}, Notes: ${
+                row["Comment"]?.trim() || ""
+              }, ${row["Journal Memo"]?.trim() || ""}`;
+              const paymentMethod = row["Payment Method"]?.trim();
+              const paymentMethodSanitise =
+                paymentMethod === "" ? "Undefined" : paymentMethod;
+              const embedding = (await generateEmbeddings(
+                itemSanitise
+              )) as Prisma.InputJsonValue;
 
-        // Embedding Phase: Process each row sequentially
-        for (let i = 0; i < cleanData.length; i++) {
-          const row = cleanData[i];
-          const customer = row["Addr 1 - Line 1"].includes(row["Co./Last Name"])
-            ? row["Addr 1 - Line 1"].trim()
-            : `${row["Addr 1 - Line 1"].trim()}, ${row[
-                "Co./Last Name"
-              ].trim()}`;
-          const address = [
-            row["- Line 2"]?.trim(),
-            row["- Line 3"]?.trim(),
-            row["- Line 4"]?.trim(),
-            row["Destination Country"].trim(),
-          ]
-            .filter(Boolean)
-            .join(", ");
-          const addressSanitise = address === "" ? "Undefined" : address;
-          const item = row["Description"]?.trim();
-          const itemSanitise = item === "" ? "Undefined" : item;
-          const quantity = parseInt(row["Quantity"], 10);
-          const price = parseFloat(
-            row["Price"].replace(/^RM/, "").replace(/,/g, "").trim()
+              return {
+                id: generateUUID(),
+                customer,
+                invoice: row["Invoice #"].trim(),
+                purchaseDate: parseDate(row["Date"]),
+                address: addressSanitise,
+                item: itemSanitise,
+                quantity,
+                price,
+                total,
+                comment: row["Comment"]?.trim() || "",
+                remarks: row["Journal Memo"]?.trim() || "",
+                paymentMethod: paymentMethodSanitise,
+                embedding,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+              };
+            })
           );
-          const total = parseFloat(
-            row["Total"].replace(/^RM/, "").replace(/,/g, "").trim()
-          );
-          const text = `Invoice: ${row[
-            "Invoice #"
-          ].trim()}, Customer: ${customer}, PurchaseDate: ${parseDate(
-            row["Date"]
-          ).toISOString()}, ItemDescription: ${itemSanitise}, Quantity: ${quantity}, PricePerUnit: ${price}, Total: ${total}, Payment: ${row[
-            "Payment Method"
-          ]?.trim()}, CustomerAddress: ${addressSanitise}, Notes: ${
-            row["Comment"]?.trim() || ""
-          }, ${row["Journal Memo"]?.trim() || ""}`;
-          const paymentMethod = row["Payment Method"]?.trim();
-          const paymentMethodSanitise =
-            paymentMethod === "" ? "Undefined" : paymentMethod;
 
-          const embedding = (await generateEmbeddings(
-            text
-          )) as Prisma.InputJsonValue;
+          const vectorData: VectorData[] = invoiceChunk
+            .filter((invoice) => invoice.id !== undefined)
+            .map((invoice) => ({
+              id: invoice.id || "",
+              embedding: invoice.embedding as number[],
+            }));
 
-          invoices.push({
-            id: generateUUID(),
-            customer,
-            invoice: row["Invoice #"].trim(),
-            purchaseDate: parseDate(row["Date"]),
-            address: addressSanitise,
-            item: itemSanitise,
-            quantity,
-            price,
-            total,
-            comment: row["Comment"]?.trim() || "",
-            remarks: row["Journal Memo"]?.trim() || "",
-            paymentMethod: paymentMethodSanitise,
-            embedding,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          });
-
-          // Send embedding progress update
+          overallProgress += chunk.length;
           const embeddingProgress =
             JSON.stringify({
               id: fileName,
               phase: "embedding",
-              progress: i + 1,
-              total: totalEmbeddingCount,
+              progress: overallProgress,
+              total: totalRows,
             }) + "\n";
           controller.enqueue(new TextEncoder().encode(embeddingProgress));
-        }
 
-        // Filter out rows already in the DB
-        const newInvoices = invoices.filter(
-          (row) =>
-            !existingSalesSet.has(`${row.invoice}-${row.item}-${row.total}`)
-        );
-
-        const totalInsertionCount = newInvoices.length;
-        if (totalInsertionCount === 0) {
-          const insertionProgress =
-            JSON.stringify({
-              id: fileName,
-              phase: "insertion",
-              progress: totalInsertionCount,
-              total: totalInsertionCount,
-            }) + "\n";
-          controller.enqueue(new TextEncoder().encode(insertionProgress));
-          controller.close();
-          return;
-        }
-
-        // Insertion Phase: Insert new invoices in chunks
-        const chunkSize = 50;
-        const chunks = chunkArray(newInvoices, chunkSize);
-        let insertedCount = 0;
-        for (const chunk of chunks) {
+          // Batch upload with retries
           let inserted = false;
           let retries = 0;
           const maxRetries = 5;
           while (!inserted) {
             try {
-              await prisma.sales.createMany({ data: chunk });
+              await prisma.sales.createMany({ data: invoiceChunk });
+              await insertVectors(vectorData);
               inserted = true;
-              insertedCount += chunk.length;
               const insertionProgress =
                 JSON.stringify({
                   id: fileName,
                   phase: "insertion",
-                  progress: insertedCount,
-                  total: totalInsertionCount,
+                  progress: overallProgress,
+                  total: totalRows,
                 }) + "\n";
               controller.enqueue(new TextEncoder().encode(insertionProgress));
             } catch (error: any) {
@@ -237,9 +240,7 @@ export async function POST(request: Request) {
                 error.code === "P1017"
               ) {
                 retries++;
-                console.error(
-                  `P1017 error encountered, retry ${retries}/${maxRetries}`
-                );
+                console.error(`P1017 error, retry ${retries}/${maxRetries}`);
                 if (retries >= maxRetries) {
                   const errorMessage =
                     JSON.stringify({
@@ -253,16 +254,14 @@ export async function POST(request: Request) {
                 }
                 await prisma.$disconnect();
                 await prisma.$connect();
-                await wait(1000);
+                await wait(500);
               } else {
                 console.error(`Error: ${error.message}`);
                 const errorMessage =
                   JSON.stringify({
                     id: fileName,
                     phase: "error",
-                    message:
-                      `${error.message}: ${JSON.stringify(chunk)}` ||
-                      "Unknown error during insertion",
+                    message: `${error.message}`,
                   }) + "\n";
                 controller.enqueue(new TextEncoder().encode(errorMessage));
                 controller.close();
@@ -285,4 +284,20 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
+}
+
+async function insertVectors(vectorData: VectorData[]): Promise<void> {
+  const query = Prisma.sql`
+    INSERT INTO "Vector" (id, embedding) VALUES
+    ${Prisma.join(
+      vectorData.map(
+        (v) => Prisma.sql`(${v.id}, ${formatEmbedding(v.embedding)}::vector)`
+      )
+    )}
+  `;
+  await prisma.$executeRaw(query);
+}
+
+function formatEmbedding(embedding: number[]): string {
+  return `[${embedding.join(",")}]`;
 }

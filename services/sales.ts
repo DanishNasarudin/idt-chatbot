@@ -1,141 +1,88 @@
 import prisma from "@/lib/prisma";
-import { Prisma } from "@prisma/client";
-import { tool } from "ai";
-import { z } from "zod";
 import { generateEmbeddings } from "./message";
 
-export async function indexSalesData() {
-  const salesData = await prisma.sales.findMany();
-
-  for (const sale of salesData) {
-    const text = `Invoice: ${sale.invoice}, Customer: ${sale.customer}, 
-      Date: ${sale.purchaseDate.toISOString()}, Item: ${sale.item}, 
-      Quantity: ${sale.quantity}, Price: ${sale.price}, Total: ${sale.total}, 
-      Payment: ${sale.paymentMethod}`;
-
-    const embedding = await generateEmbeddings(text);
-
-    await prisma.sales.update({
-      where: { id: sale.id },
-      data: { embedding },
-    });
+function cosineSimilarityOptimized(
+  query: number[],
+  queryNorm: number,
+  saleEmbedding: number[]
+): number {
+  let dot = 0;
+  let saleNormSquared = 0;
+  for (let i = 0; i < query.length; i++) {
+    dot += query[i] * saleEmbedding[i];
+    saleNormSquared += saleEmbedding[i] ** 2;
   }
+  return dot / (queryNorm * Math.sqrt(saleNormSquared));
 }
 
-function cosineSimilarity(a: number[], b: number[]): number {
-  const dot = a.reduce((sum, val, i) => sum + val * b[i], 0);
-  const normA = Math.sqrt(a.reduce((sum, val) => sum + val * val, 0));
-  const normB = Math.sqrt(b.reduce((sum, val) => sum + val * val, 0));
-  return dot / (normA * normB);
-}
+// export async function retrieveRelevantSales(
+//   userQuery: string
+// ): Promise<string> {
+//   const queryEmbedding = await generateEmbeddings(userQuery);
+//   const queryNorm = Math.sqrt(
+//     queryEmbedding.reduce((sum, val) => sum + val ** 2, 0)
+//   );
 
-function euclideanDistance(a: number[], b: number[]): number {
-  return Math.sqrt(a.reduce((sum, val, i) => sum + Math.pow(val - b[i], 2), 0));
-}
-
-function dotProduct(a: number[], b: number[]): number {
-  return a.reduce((sum, val, i) => sum + val * b[i], 0);
-}
-
-export async function retrieveRelevantSales(
-  userQuery: string
-): Promise<string> {
-  const queryEmbedding = await generateEmbeddings(userQuery);
-
-  // Fetch all sales records (for large datasets, consider batching or indexing)
-  const salesData = await prisma.sales.findMany({
-    where: { embedding: { not: Prisma.JsonNull } },
-    orderBy: { invoice: "desc" },
-  });
-
-  // Calculate similarity for each sale record
-  const scoredSales = salesData
-    .map((sale) => {
-      const cosineScore = cosineSimilarity(
-        queryEmbedding,
-        sale.embedding as number[]
-      );
-      const keywordScore = userQuery.includes(sale.invoice) ? 1.5 : 1;
-      return {
-        text: `Invoice: ${sale.invoice}, Customer: ${
-          sale.customer
-        }, PurchaseDate: ${sale.purchaseDate.toISOString()}, ItemDescription: ${
-          sale.item
-        }, Quantity: ${sale.quantity}, PricePerUnit: ${sale.price}, Total: ${
-          sale.total
-        }, Payment: ${sale.paymentMethod}, CustomerAddress: ${
-          sale.address
-        }, Notes: ${sale.comment}, ${sale.remarks}`,
-        score: cosineScore * keywordScore,
-      };
-    })
-    .sort((a, b) => b.score - a.score) // Sort by highest similarity
-    .slice(0, 20); // Keep top 10 matches
-
-  //   console.log(scoredSales, "CHECK SCORE");
-
-  return scoredSales.map((sale) => sale.text).join("\n");
-}
-
-// export async function getTotalSales() {
-//   const totalSales = await prisma.sales.aggregate({
-//     _sum: { total: true },
+//   // Fetch all sales records (for large datasets, consider batching or indexing)
+//   const salesData = await prisma.sales.findMany({
+//     where: { embedding: { not: Prisma.JsonNull } },
+//     orderBy: { invoice: "desc" },
 //   });
 
-//   return `The total sum of all sales is RM ${
-//     totalSales._sum.total?.toFixed(2) || 0
-//   }.`;
+//   // Calculate similarity for each sale record
+//   const scoredSales = salesData
+//     .map((sale) => {
+//       const saleEmbedding = sale.embedding as number[];
+//       const cosineScore = cosineSimilarityOptimized(
+//         queryEmbedding,
+//         queryNorm,
+//         saleEmbedding
+//       );
+//       const keywordScore = userQuery.includes(sale.invoice) ? 1.5 : 1;
+//       return {
+//         text: `Invoice: ${sale.invoice}, Customer: ${
+//           sale.customer
+//         }, PurchaseDate: ${sale.purchaseDate.toISOString()}, ItemDescription: ${
+//           sale.item
+//         }, Quantity: ${sale.quantity}, PricePerUnit: ${sale.price}, Total: ${
+//           sale.total
+//         }, Payment: ${sale.paymentMethod}, CustomerAddress: ${
+//           sale.address
+//         }, Notes: ${sale.comment}, ${sale.remarks}`,
+//         score: cosineScore * keywordScore,
+//       };
+//     })
+//     .sort((a, b) => b.score - a.score) // Sort by highest similarity
+//     .slice(0, 20); // Keep top 10 matches
+
+//   //   console.log(scoredSales, "CHECK SCORE");
+
+//   return scoredSales.map((sale) => sale.text).join("\n");
 // }
 
-export const getTotalSales = tool({
-  description:
-    "Calculate total sales, optionally filtered by month, year, or payment method",
-  parameters: z.object({
-    month: z.number().optional(), // Month filter (1-12)
-    year: z.number().optional(), // Year filter (e.g., 2024)
-    paymentMethod: z.string().optional(), // Payment method filter (e.g., "Credit Card")
-  }),
-  execute: async ({ month, year, paymentMethod }) => {
-    try {
-      // Build Prisma query filters dynamically
-      const filters: any = {};
+export type ScoredSale = {
+  id: string;
+  score: number;
+};
 
-      if (month && year) {
-        // Filter by a specific month and year
-        filters.purchaseDate = {
-          gte: new Date(year, month - 1, 1), // Start of month
-          lt: new Date(year, month, 1), // Start of next month
-        };
-      } else if (year) {
-        // Filter by a specific year
-        filters.purchaseDate = {
-          gte: new Date(year, 0, 1),
-          lt: new Date(year + 1, 0, 1),
-        };
-      }
+export async function retrieveRelevantSalesRecords(
+  userQuery: string,
+  threshold: number = 0.7
+): Promise<ScoredSale[]> {
+  const queryEmbedding = await generateEmbeddings(userQuery.toUpperCase());
 
-      if (paymentMethod) {
-        filters.paymentMethod = paymentMethod;
-      }
+  const queryEmbeddingString = `[${queryEmbedding.join(",")}]`;
+  const maxDistance = threshold;
 
-      // Prisma aggregation query
-      const totalSales = await prisma.sales.aggregate({
-        _sum: { total: true },
-        where: filters,
-      });
+  const scoredSales = await prisma.$queryRaw<ScoredSale[]>`
+      SELECT 
+      v.id,
+      (v.embedding <=> (${queryEmbeddingString}::vector(4096))) AS score
+    FROM "Vector" v
+    WHERE v.embedding IS NOT NULL
+    AND (v.embedding <=> (${queryEmbeddingString}::vector(4096))) <= ${maxDistance}
+    ORDER BY v.embedding <=> (${queryEmbeddingString}::vector(4096));
+    `;
 
-      return `The total sales${
-        month && year
-          ? ` for ${month}/${year}`
-          : year
-          ? ` for ${year}`
-          : paymentMethod
-          ? ` for payment method '${paymentMethod}'`
-          : ""
-      } is RM ${totalSales._sum.total?.toFixed(2) || 0}.`;
-    } catch (error) {
-      console.error("Error fetching total sales:", error);
-      return "Failed to retrieve total sales.";
-    }
-  },
-});
+  return scoredSales;
+}

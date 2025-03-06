@@ -2,7 +2,7 @@
 
 import { useChat } from "@ai-sdk/react";
 import type { Attachment, Message } from "ai";
-import { memo, useState } from "react";
+import { useState } from "react";
 import { useSWRConfig } from "swr";
 
 import { cn, generateUUID } from "@/lib/utils";
@@ -12,7 +12,7 @@ import { toast } from "sonner";
 import { Messages } from "./messages";
 import { MultimodalInput } from "./multimodal-input";
 
-function PureChat({
+export default function Chat({
   id,
   initialMessages,
   isReadonly,
@@ -99,12 +99,3 @@ function PureChat({
     </>
   );
 }
-
-export const Chat = memo(PureChat, (prevProps, nextProps) => {
-  if (prevProps.id !== nextProps.id) return false;
-  if (prevProps.initialMessages !== nextProps.initialMessages) return false;
-  if (prevProps.isReadonly !== nextProps.isReadonly) return false;
-  if (prevProps.selectedChatModel !== nextProps.selectedChatModel) return false;
-
-  return true;
-});
